@@ -1,41 +1,15 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# Serviq Mobile — scoped Codex instructions
 
-## Expo has changed — do not trust your training data
+- Read `ARCHITECTURE_SKELETON.md` for placements before writing frontend changes. This user-authored contract is kept intact; consult current Expo Router docs where actual routing constraints override illustrative placeholder paths.
+- React Native / Expo Router / TypeScript. Thin `app/` route files; real features live in `features/`; services isolate fetch; raw DTOs in models/api and mapped domain models in models/domain when warranted; Zustand only for shared/persisted **client** state.
+- Check current Expo SDK and file locations (`app/` versus `src/app/`) before scaffolding; honor what the actual project uses. Do not create example files solely because skeleton shows them.
+- For any user-facing feature requiring backend change, coordinate with root cross-stack instructions. Never fake data as a real API integration. Implement loading, empty, success, error, access denied, retry and offline states when relevant.
+- When adding packages use Expo-compatible install practice; report permissions, config plugins, native rebuild and lockfile changes.
+- Update affected docs/specs and show real verification evidence. See `../docs/DELIVERY_REPORT_TEMPLATE.md`.
+- This folder is its own Git repository for `ExamQuest-frontend`; commit and push frontend changes only from `frontend/`. Do not use the workspace root as a Git repository, and do not include `.env`, secrets, `node_modules`, generated builds, or cache files.
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
-
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
-
-## Commands
-
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
-
-```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
-```
-
-Run lint and typecheck before declaring any task done.
-
-## Navigation & Routing
-
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
-
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+## Automatic synchronization / task closeout
+- Automatically load the root `../AGENTS.md`, `../docs/PROJECT_STATE.md`, and task-relevant docs selected from `../docs/DOCS_INDEX.md` (do not reread every document in full).
+- On any changed feature update verified status in `../docs/PROJECT_STATE.md`, related feature spec, API contract and changelog as applicable; coordinate opposite layer for cross-stack implementation.
+- Update this scoped `AGENTS.md` **only** if enduring coding/agent rules or documentation paths change, not for each feature. If root or other scoped agent also needs a policy change, synchronize only the relevant instruction sections.
+- Final answer must say what changed in *both* layers or why a layer is unaffected, dependencies/install/rebuild commands and evidence, plus Bangla viewer demo instructions. Do not say COMPLETE when a required integration is missing.

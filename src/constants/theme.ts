@@ -9,11 +9,11 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#0F172A',
+    background: '#F6F8FA',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#E7F4EE',
+    textSecondary: '#5B6472',
   },
   dark: {
     text: '#ffffff',
@@ -55,11 +55,44 @@ export const Spacing = {
   half: 2,
   one: 4,
   two: 8,
+  twoHalf: 12,
   three: 16,
+  threeHalf: 20,
   four: 24,
   five: 32,
-  six: 64,
+  fiveHalf: 40,
+  six: 48,
+  seven: 64,
+} as const;
+
+export const ExamQuestColors = {
+  background: '#F6F8FA',
+  surface: '#FFFFFF',
+  surfaceSoft: '#F1F5F4',
+  surfaceSelected: '#E7F4EE',
+  textPrimary: '#0F172A',
+  textSecondary: '#5B6472',
+  textMuted: '#7D8794',
+  border: '#D8DEE8',
+  borderStrong: '#B8C0CC',
+  brandPrimary: '#146C5D',
+  brandPressed: '#0F584C',
+  onBrandPrimary: '#FFFFFF',
+  success: '#157347',
+  successSoft: '#E7F4EE',
+  warning: '#9A6700',
+  warningSoft: '#FFF4D6',
+  error: '#A73535',
+  errorSoft: '#FCE8E6',
+  info: '#2458A6',
+  infoSoft: '#E8F0FE',
+} as const;
+
+export const Radius = {
+  sm: 6,
+  md: 8,
+  lg: 12,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 800;
+export const MaxContentWidth = 560;
