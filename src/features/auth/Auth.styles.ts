@@ -529,4 +529,32 @@ export const authStyles = StyleSheet.create({
   linkRow: {
     gap: Spacing.two,
   },
+  dashboardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  dashboardCard: {
+    flexGrow: 1,
+    flexBasis: '46%',
+    minWidth: 148,
+    minHeight: 104,
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: ExamQuestColors.border,
+    padding: Spacing.three,
+    backgroundColor: ExamQuestColors.surface,
+  },
+  dashboardCardPrimary: {
+    borderColor: '#B7D8D0',
+    backgroundColor: ExamQuestColors.surfaceSelected,
+  },
+  dashboardCardTitle: {
+    color: ExamQuestColors.textPrimary,
+  },
+  dashboardCardMeta: {
+    color: ExamQuestColors.textMuted,
+  },
 });

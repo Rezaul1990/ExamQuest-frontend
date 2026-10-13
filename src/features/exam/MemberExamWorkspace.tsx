@@ -10,7 +10,9 @@ import type { ExamAttemptDto, ExamBookDto, ExamChapterDto, OptionKey, QuestionPa
 import { getApiErrorMessage } from '@/services/apiClient';
 import { examService } from '@/services/examService';
 
-export function MemberExamWorkspace() {
+type MemberExamSection = 'exams' | 'history';
+
+export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: MemberExamSection; onBack?: () => void }) {
   const [books, setBooks] = useState<ExamBookDto[]>([]);
   const [chapters, setChapters] = useState<ExamChapterDto[]>([]);
   const [papers, setPapers] = useState<QuestionPaperDto[]>([]);
@@ -146,10 +148,11 @@ export function MemberExamWorkspace() {
 
   return (
     <ThemedView style={authStyles.panel}>
+      {onBack && <AuthButton label="Back to dashboard" onPress={onBack} variant="secondary" />}
       <ThemedView style={authStyles.panelHeader}>
-        <ThemedText type="sectionTitle">Exam dashboard</ThemedText>
+        <ThemedText type="sectionTitle">{section === 'exams' ? 'Available exams' : 'Result history'}</ThemedText>
         <ThemedText type="small" style={authStyles.mutedText}>
-          Select a book and chapter, start a published question paper, then submit answers for server-side scoring.
+          {section === 'exams' ? 'Select a book and chapter, start an open question paper, then submit answers for backend scoring.' : 'Review submitted attempts and latest scores.'}
         </ThemedText>
       </ThemedView>
       <View style={authStyles.statGrid}>
@@ -165,34 +168,41 @@ export function MemberExamWorkspace() {
           Last result: {result.score}/{result.total} ({result.percentage}%)
         </ThemedText>
       )}
-      <ThemedText type="smallBold">Books</ThemedText>
-      <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={(id) => { setSelectedBookId(id); setSelectedChapterId(''); }} />
-      {!!selectedBook && <ThemedText type="caption" style={authStyles.mutedText}>{selectedBook.subject} · {selectedBook.className || 'Class open'} · {selectedBook.group || 'All groups'}</ThemedText>}
-      <ThemedText type="smallBold">Chapters</ThemedText>
-      <ChipRow
-        items={[{ id: '', label: 'All chapters' }, ...chapters.map((chapter) => ({ id: chapter.id, label: chapter.title }))]}
-        selectedId={selectedChapterId}
-        onSelect={setSelectedChapterId}
-      />
-      {!!selectedChapter && <ThemedText type="caption" style={authStyles.mutedText}>Filtered by {selectedChapter.title}</ThemedText>}
-      <ThemedText type="smallBold">Published papers</ThemedText>
-      {!papers.length && <ThemedText style={authStyles.info}>No published papers yet. Ask Admin or Staff to publish one.</ThemedText>}
-      {papers.map((paper) => (
-        <View key={paper.id} style={authStyles.listRow}>
-          <ThemedText type="smallBold">{paper.title}</ThemedText>
-          <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.totalMarks} marks · {paper.durationMinutes} min</ThemedText>
-          <ThemedText type="caption" style={authStyles.mutedText}>Open: {formatWindow(paper)}</ThemedText>
-          <AuthButton label="Start exam" onPress={() => startPaper(paper)} />
-        </View>
-      ))}
-      <ThemedText type="smallBold">Attempt history</ThemedText>
-      {!attempts.length && <ThemedText type="caption" style={authStyles.mutedText}>No attempts yet.</ThemedText>}
-      {attempts.slice(0, 5).map((attempt) => (
-        <View key={attempt.id} style={authStyles.listRow}>
-          <ThemedText type="smallBold">{attempt.paperTitle || 'Question paper'}</ThemedText>
-          <ThemedText type="caption" style={authStyles.mutedText}>{attempt.status} · {attempt.score}/{attempt.total} · {attempt.percentage}%</ThemedText>
-        </View>
-      ))}
+      {section === 'exams' ? (
+        <>
+          <ThemedText type="smallBold">Books</ThemedText>
+          <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={(id) => { setSelectedBookId(id); setSelectedChapterId(''); }} />
+          {!!selectedBook && <ThemedText type="caption" style={authStyles.mutedText}>{selectedBook.subject} · {selectedBook.className || 'Class open'} · {selectedBook.group || 'All groups'}</ThemedText>}
+          <ThemedText type="smallBold">Chapters</ThemedText>
+          <ChipRow
+            items={[{ id: '', label: 'All chapters' }, ...chapters.map((chapter) => ({ id: chapter.id, label: chapter.title }))]}
+            selectedId={selectedChapterId}
+            onSelect={setSelectedChapterId}
+          />
+          {!!selectedChapter && <ThemedText type="caption" style={authStyles.mutedText}>Filtered by {selectedChapter.title}</ThemedText>}
+          <ThemedText type="smallBold">Published papers</ThemedText>
+          {!papers.length && <ThemedText style={authStyles.info}>No published papers yet. Ask Admin or Staff to publish one.</ThemedText>}
+          {papers.map((paper) => (
+            <View key={paper.id} style={authStyles.listRow}>
+              <ThemedText type="smallBold">{paper.title}</ThemedText>
+              <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.totalMarks} marks · {paper.durationMinutes} min</ThemedText>
+              <ThemedText type="caption" style={authStyles.mutedText}>Open: {formatWindow(paper)}</ThemedText>
+              <AuthButton label="Start exam" onPress={() => startPaper(paper)} />
+            </View>
+          ))}
+        </>
+      ) : (
+        <>
+          <ThemedText type="smallBold">Attempt history</ThemedText>
+          {!attempts.length && <ThemedText type="caption" style={authStyles.mutedText}>No attempts yet.</ThemedText>}
+          {attempts.map((attempt) => (
+            <View key={attempt.id} style={authStyles.listRow}>
+              <ThemedText type="smallBold">{attempt.paperTitle || 'Question paper'}</ThemedText>
+              <ThemedText type="caption" style={authStyles.mutedText}>{attempt.status} · {attempt.score}/{attempt.total} · {attempt.percentage}%</ThemedText>
+            </View>
+          ))}
+        </>
+      )}
     </ThemedView>
   );
 }

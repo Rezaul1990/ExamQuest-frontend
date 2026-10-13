@@ -11,8 +11,11 @@ import { getApiErrorMessage } from '@/services/apiClient';
 import { adminService } from '@/services/adminService';
 import { useAuth } from '@/store';
 
+type AdminSection = 'dashboard' | 'staff' | 'books' | 'chapters' | 'import' | 'question' | 'paper';
+
 export function AdminDashboardScreen() {
   const { logout } = useAuth();
+  const [activeSection, setActiveSection] = useState<AdminSection>('dashboard');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [selected, setSelected] = useState<string[]>(['CONTENT_READ']);
   const [loading, setLoading] = useState(false);
@@ -75,8 +78,8 @@ export function AdminDashboardScreen() {
           <ThemedView style={authStyles.headerBand}>
             <AuthHero
               kicker="Admin workspace"
-              title="Admin Control"
-              body="Create staff logins and decide exactly which areas each staff member can access."
+              title={activeSection === 'dashboard' ? 'Admin Control' : sectionTitles[activeSection]}
+              body={activeSection === 'dashboard' ? 'Open the right workspace from quick links instead of managing everything in one long page.' : 'Use this focused section, then return to the dashboard for another task.'}
               badges={['Role-based access', 'Admin controlled']}
               preview="access">
               <View style={authStyles.statGrid}>
@@ -86,55 +89,103 @@ export function AdminDashboardScreen() {
             </AuthHero>
           </ThemedView>
 
-          <ThemedView style={authStyles.panel}>
-            <ThemedView style={authStyles.panelHeader}>
-              <ThemedText type="sectionTitle">Create staff login</ThemedText>
-              <ThemedText type="small" style={authStyles.mutedText}>Give the staff member these credentials after creation.</ThemedText>
-            </ThemedView>
-            <AuthTextField label="Staff full name" placeholder="Staff full name" value={form.name} onChangeText={(value) => update('name', value)} />
-            <AuthTextField label="Staff email" placeholder="staff@example.com" value={form.email} onChangeText={(value) => update('email', value)} keyboardType="email-address" textContentType="emailAddress" autoComplete="email" />
-            <AuthTextField label="Temporary password" placeholder="Create temporary password" value={form.password} onChangeText={(value) => update('password', value)} secureTextEntry showPasswordToggle textContentType="newPassword" autoComplete="new-password" helperText="Use a temporary password and ask staff to store it safely." />
+          {activeSection === 'dashboard' ? (
+            <AdminQuickLinks staffCount={staffCount} onOpen={setActiveSection} />
+          ) : activeSection === 'staff' ? (
+            <ThemedView style={authStyles.panel}>
+              <SectionBack onPress={() => setActiveSection('dashboard')} />
+              <ThemedView style={authStyles.panelHeader}>
+                <ThemedText type="sectionTitle">Create staff login</ThemedText>
+                <ThemedText type="small" style={authStyles.mutedText}>Give the staff member these credentials after creation.</ThemedText>
+              </ThemedView>
+              <AuthTextField label="Staff full name" placeholder="Staff full name" value={form.name} onChangeText={(value) => update('name', value)} />
+              <AuthTextField label="Staff email" placeholder="staff@example.com" value={form.email} onChangeText={(value) => update('email', value)} keyboardType="email-address" textContentType="emailAddress" autoComplete="email" />
+              <AuthTextField label="Temporary password" placeholder="Create temporary password" value={form.password} onChangeText={(value) => update('password', value)} secureTextEntry showPasswordToggle textContentType="newPassword" autoComplete="new-password" helperText="Use a temporary password and ask staff to store it safely." />
 
-            <ThemedView style={authStyles.sectionDivider} />
-            <ThemedView style={authStyles.panelHeader}>
-              <ThemedText type="sectionTitle">Access permissions</ThemedText>
-              <ThemedText type="small" style={authStyles.mutedText}>Checked items become available after staff login.</ThemedText>
+              <ThemedView style={authStyles.sectionDivider} />
+              <ThemedView style={authStyles.panelHeader}>
+                <ThemedText type="sectionTitle">Access permissions</ThemedText>
+                <ThemedText type="small" style={authStyles.mutedText}>Checked items become available after staff login.</ThemedText>
+              </ThemedView>
+              <ThemedText style={authStyles.info}>Admin-only powers like user management are intentionally not assignable here.</ThemedText>
+              <View style={authStyles.permissionGrid}>
+                {staffPermissions.map((permission) => {
+                  const checked = selected.includes(permission.key);
+                  return (
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked }}
+                      key={permission.key}
+                      onPress={() => toggle(permission.key)}
+                      style={[authStyles.permissionItem, checked && authStyles.permissionItemSelected]}>
+                      <View style={[authStyles.checkbox, checked && authStyles.checkboxSelected]}>
+                        <ThemedText style={authStyles.checkboxMark}>{checked ? '✓' : ''}</ThemedText>
+                      </View>
+                      <View style={authStyles.permissionLabel}>
+                        <ThemedText type="smallBold">{permission.label}</ThemedText>
+                        <ThemedText type="caption" style={authStyles.mutedText}>{permission.description}</ThemedText>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
+              {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
+              {loading ? <ActivityIndicator /> : <AuthButton label="Create staff account" onPress={submit} disabled={loading} />}
             </ThemedView>
-            <ThemedText style={authStyles.info}>Admin-only powers like user management are intentionally not assignable here.</ThemedText>
-            <View style={authStyles.permissionGrid}>
-              {staffPermissions.map((permission) => {
-                const checked = selected.includes(permission.key);
-                return (
-                  <Pressable
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked }}
-                    key={permission.key}
-                    onPress={() => toggle(permission.key)}
-                    style={[authStyles.permissionItem, checked && authStyles.permissionItemSelected]}>
-                    <View style={[authStyles.checkbox, checked && authStyles.checkboxSelected]}>
-                      <ThemedText style={authStyles.checkboxMark}>{checked ? '✓' : ''}</ThemedText>
-                    </View>
-                    <View style={authStyles.permissionLabel}>
-                      <ThemedText type="smallBold">{permission.label}</ThemedText>
-                      <ThemedText type="caption" style={authStyles.mutedText}>{permission.description}</ThemedText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
-            {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
-          </ThemedView>
-
-          <ExamAdminPanel />
+          ) : (
+            <ExamAdminPanel section={activeSection} onBack={() => setActiveSection('dashboard')} />
+          )}
         </ThemedView>
       </ScrollView>
       <ThemedView style={authStyles.fixedFooter}>
         <ThemedView style={authStyles.footerInner}>
-          {loading ? <ActivityIndicator /> : <AuthButton label="Create staff account" onPress={submit} disabled={loading} />}
+          {activeSection !== 'dashboard' && <AuthButton label="Back to dashboard" onPress={() => setActiveSection('dashboard')} variant="secondary" />}
           <AuthButton label="Back to login" onPress={logout} variant="secondary" />
         </ThemedView>
       </ThemedView>
     </ThemedView>
   );
+}
+
+const sectionTitles: Record<AdminSection, string> = {
+  dashboard: 'Admin Control',
+  staff: 'Create Staff',
+  books: 'Books',
+  chapters: 'Chapters',
+  import: 'CSV Import',
+  question: 'Create Question',
+  paper: 'Question Papers',
+};
+
+function AdminQuickLinks({ staffCount, onOpen }: { staffCount: number | null; onOpen: (section: AdminSection) => void }) {
+  return (
+    <ThemedView style={authStyles.panel}>
+      <ThemedView style={authStyles.panelHeader}>
+        <ThemedText type="sectionTitle">Quick links</ThemedText>
+        <ThemedText type="small" style={authStyles.mutedText}>Choose a focused task. Each area opens as its own workspace.</ThemedText>
+      </ThemedView>
+      <View style={authStyles.dashboardGrid}>
+        <DashboardCard title="Create staff" meta={`${staffCount === null ? '...' : staffCount} active staff`} primary onPress={() => onOpen('staff')} />
+        <DashboardCard title="Create book" meta="Subject and class setup" onPress={() => onOpen('books')} />
+        <DashboardCard title="Create chapter" meta="Book-wise chapters" onPress={() => onOpen('chapters')} />
+        <DashboardCard title="Import CSV" meta="Bulk MCQ question bank" primary onPress={() => onOpen('import')} />
+        <DashboardCard title="Create question" meta="Manual MCQ entry" onPress={() => onOpen('question')} />
+        <DashboardCard title="Question papers" meta="Build and publish exams" primary onPress={() => onOpen('paper')} />
+      </View>
+    </ThemedView>
+  );
+}
+
+function DashboardCard({ title, meta, primary, onPress }: { title: string; meta: string; primary?: boolean; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={[authStyles.dashboardCard, primary && authStyles.dashboardCardPrimary]}>
+      <ThemedText type="smallBold" style={authStyles.dashboardCardTitle}>{title}</ThemedText>
+      <ThemedText type="caption" style={authStyles.dashboardCardMeta}>{meta}</ThemedText>
+    </Pressable>
+  );
+}
+
+function SectionBack({ onPress }: { onPress: () => void }) {
+  return <AuthButton label="Back to dashboard" onPress={onPress} variant="secondary" />;
 }

@@ -14,7 +14,9 @@ const csvSample =
   'book,chapter,question,optionA,optionB,optionC,optionD,correctOption,explanation,difficulty,subject,className,group\n' +
   'Physics 1st Paper,Vector,Vector quantity which one?,Force,Mass,Time,Temperature,A,Force has magnitude and direction,easy,Physics,HSC,Science';
 
-export function ExamAdminPanel() {
+type ExamAdminSection = 'books' | 'chapters' | 'import' | 'question' | 'paper';
+
+export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAdminSection; onBack?: () => void }) {
   const [books, setBooks] = useState<ExamBookDto[]>([]);
   const [chapters, setChapters] = useState<ExamChapterDto[]>([]);
   const [questions, setQuestions] = useState<ExamQuestionDto[]>([]);
@@ -205,24 +207,27 @@ export function ExamAdminPanel() {
 
   return (
     <ThemedView style={authStyles.panel}>
+      {onBack && <AuthButton label="Back to dashboard" onPress={onBack} variant="secondary" />}
       <ThemedView style={authStyles.panelHeader}>
-        <ThemedText type="sectionTitle">Exam content manager</ThemedText>
+        <ThemedText type="sectionTitle">{sectionTitle[section]}</ThemedText>
         <ThemedText type="small" style={authStyles.mutedText}>
-          Build books, chapters, question banks and publishable MCQ papers from one workspace.
+          {sectionHelp[section]}
         </ThemedText>
       </ThemedView>
 
-      <View style={authStyles.statGrid}>
-        <ScreenStat label="Books" value={String(books.length)} />
-        <ScreenStat label="Questions" value={String(questions.length)} />
-        <ScreenStat label="Papers" value={String(papers.length)} />
-      </View>
+      {section === 'books' && (
+        <View style={authStyles.statGrid}>
+          <ScreenStat label="Books" value={String(books.length)} />
+          <ScreenStat label="Questions" value={String(questions.length)} />
+          <ScreenStat label="Papers" value={String(papers.length)} />
+        </View>
+      )}
 
       {loading && <ActivityIndicator />}
       {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
       {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
 
-      <ThemedView style={examStyles.section}>
+      {section === 'books' && <ThemedView style={examStyles.section}>
         <ThemedText type="smallBold">1. Books</ThemedText>
         <AuthTextField label="Book title" placeholder="Physics 1st Paper" value={bookForm.title} onChangeText={(title) => setBookForm((current) => ({ ...current, title }))} />
         <AuthTextField label="Subject" placeholder="Physics" value={bookForm.subject} onChangeText={(subject) => setBookForm((current) => ({ ...current, subject }))} />
@@ -236,16 +241,17 @@ export function ExamAdminPanel() {
         </View>
         <AuthButton label="Create book" onPress={createBook} />
         <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={setSelectedBookId} />
-      </ThemedView>
+      </ThemedView>}
 
-      <ThemedView style={examStyles.section}>
+      {section === 'chapters' && <ThemedView style={examStyles.section}>
+        <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={setSelectedBookId} />
         <ThemedText type="smallBold">2. Chapters for {selectedBook?.title || 'selected book'}</ThemedText>
         <AuthTextField label="Chapter title" placeholder="Vector" value={chapterTitle} onChangeText={setChapterTitle} />
         <AuthButton label="Create chapter" onPress={createChapter} variant="secondary" />
         <ChipRow items={selectedBookChapters.map((chapter) => ({ id: chapter.id, label: chapter.title }))} selectedId={questionForm.chapterId} onSelect={(chapterId) => setQuestionForm((current) => ({ ...current, chapterId }))} />
-      </ThemedView>
+      </ThemedView>}
 
-      <ThemedView style={examStyles.section}>
+      {section === 'import' && <ThemedView style={examStyles.section}>
         <ThemedText type="smallBold">3. CSV import</ThemedText>
         <TextInput
           accessibilityLabel="CSV import text"
@@ -261,9 +267,11 @@ export function ExamAdminPanel() {
           <View style={examStyles.flexField}><AuthButton label="Preview CSV" onPress={previewCsv} variant="secondary" /></View>
           <View style={examStyles.flexField}><AuthButton label="Import valid rows" onPress={commitCsv} /></View>
         </View>
-      </ThemedView>
+      </ThemedView>}
 
-      <ThemedView style={examStyles.section}>
+      {section === 'question' && <ThemedView style={examStyles.section}>
+        <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={setSelectedBookId} />
+        <ChipRow items={selectedBookChapters.map((chapter) => ({ id: chapter.id, label: chapter.title }))} selectedId={questionForm.chapterId} onSelect={(chapterId) => setQuestionForm((current) => ({ ...current, chapterId }))} />
         <ThemedText type="smallBold">4. Manual question</ThemedText>
         <AuthTextField label="Question" placeholder="Write MCQ question" value={questionForm.text} onChangeText={(text) => setQuestionForm((current) => ({ ...current, text }))} />
         {(['optionA', 'optionB', 'optionC', 'optionD'] as const).map((key) => (
@@ -276,9 +284,10 @@ export function ExamAdminPanel() {
         />
         <AuthTextField label="Explanation" placeholder="Short explanation" value={questionForm.explanation} onChangeText={(explanation) => setQuestionForm((current) => ({ ...current, explanation }))} />
         <AuthButton label="Create question" onPress={createQuestion} />
-      </ThemedView>
+      </ThemedView>}
 
-      <ThemedView style={examStyles.section}>
+      {section === 'paper' && <ThemedView style={examStyles.section}>
+        <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={setSelectedBookId} />
         <ThemedText type="smallBold">5. Question paper builder</ThemedText>
         <AuthTextField label="Paper title" placeholder="Vector chapter practice test" value={paperForm.title} onChangeText={(title) => setPaperForm((current) => ({ ...current, title }))} />
         <View style={authStyles.row}>
@@ -339,10 +348,26 @@ export function ExamAdminPanel() {
             <AuthButton label={paper.status === 'published' ? 'Unpublish' : 'Publish'} onPress={() => togglePaperStatus(paper)} variant="secondary" />
           </View>
         ))}
-      </ThemedView>
+      </ThemedView>}
     </ThemedView>
   );
 }
+
+const sectionTitle: Record<ExamAdminSection, string> = {
+  books: 'Create book',
+  chapters: 'Create chapter',
+  import: 'CSV question import',
+  question: 'Create question',
+  paper: 'Question paper builder',
+};
+
+const sectionHelp: Record<ExamAdminSection, string> = {
+  books: 'Create the book/subject container first.',
+  chapters: 'Select a book, then create chapters under that book.',
+  import: 'Paste CSV rows, preview validation, then import valid questions.',
+  question: 'Add one MCQ manually with correct answer and explanation.',
+  paper: 'Select questions, schedule availability and publish the exam paper.',
+};
 
 function formatWindow(paper: QuestionPaperDto) {
   const from = paper.availableFrom ? new Date(paper.availableFrom).toLocaleString() : 'Now';
