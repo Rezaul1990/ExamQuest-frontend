@@ -6,6 +6,8 @@ import { ThemedView } from '@/components/themed-view';
 import { Routes } from '@/constants/Routes';
 import { authStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthHero, ScreenStat } from '@/features/auth/components/AuthFields';
+import { ExamAdminPanel } from '@/features/exam/ExamAdminPanel';
+import { MemberExamWorkspace } from '@/features/exam/MemberExamWorkspace';
 import { useAuth } from '@/store';
 
 export function RoleHomeScreen() {
@@ -49,6 +51,7 @@ export function RoleHomeScreen() {
               <ThemedText type="linkPrimary">Open profile</ThemedText>
             </Link>
           </ThemedView>
+          {user?.role === 'STAFF' ? <ExamAdminPanel /> : <MemberExamWorkspace />}
         </ThemedView>
       </ScrollView>
       <ThemedView style={authStyles.fixedFooter}>

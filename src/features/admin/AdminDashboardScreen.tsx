@@ -6,6 +6,7 @@ import { ThemedView } from '@/components/themed-view';
 import { staffPermissions } from '@/constants/Permissions';
 import { authStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthHero, AuthTextField, ScreenStat } from '@/features/auth/components/AuthFields';
+import { ExamAdminPanel } from '@/features/exam/ExamAdminPanel';
 import { getApiErrorMessage } from '@/services/apiClient';
 import { adminService } from '@/services/adminService';
 import { useAuth } from '@/store';
@@ -124,6 +125,8 @@ export function AdminDashboardScreen() {
             {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
             {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
           </ThemedView>
+
+          <ExamAdminPanel />
         </ThemedView>
       </ScrollView>
       <ThemedView style={authStyles.fixedFooter}>
