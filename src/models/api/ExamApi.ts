@@ -40,6 +40,8 @@ export type QuestionPaperDto = {
   durationMinutes: number;
   totalMarks: number;
   questionCount: number;
+  availableFrom?: string;
+  availableUntil?: string;
   status: ContentStatus;
 };
 

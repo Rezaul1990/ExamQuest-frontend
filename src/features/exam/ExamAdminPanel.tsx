@@ -33,7 +33,14 @@ export function ExamAdminPanel() {
     correctOption: 'A' as OptionKey,
     explanation: '',
   });
-  const [paperForm, setPaperForm] = useState({ title: '', durationMinutes: '20', totalMarks: '20', status: 'draft' });
+  const [paperForm, setPaperForm] = useState({
+    title: '',
+    durationMinutes: '20',
+    totalMarks: '20',
+    availableFrom: '',
+    availableUntil: '',
+    status: 'draft',
+  });
   const [csvText, setCsvText] = useState(csvSample);
   const [validRows, setValidRows] = useState<ImportRowDto[]>([]);
   const [previewMessage, setPreviewMessage] = useState('');
@@ -172,11 +179,13 @@ export function ExamAdminPanel() {
         durationMinutes: Number(paperForm.durationMinutes),
         totalMarks: Number(paperForm.totalMarks),
         questionIds: selectedQuestionIds,
+        availableFrom: paperForm.availableFrom || undefined,
+        availableUntil: paperForm.availableUntil || undefined,
         status: paperForm.status,
       });
       setPapers((current) => [result.questionPaper, ...current]);
       setSelectedQuestionIds([]);
-      setPaperForm({ title: '', durationMinutes: '20', totalMarks: '20', status: 'draft' });
+      setPaperForm({ title: '', durationMinutes: '20', totalMarks: '20', availableFrom: '', availableUntil: '', status: 'draft' });
       setMessage('Question paper created.');
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
@@ -280,6 +289,26 @@ export function ExamAdminPanel() {
             <AuthTextField label="Marks" placeholder="20" value={paperForm.totalMarks} onChangeText={(totalMarks) => setPaperForm((current) => ({ ...current, totalMarks }))} keyboardType="numeric" />
           </View>
         </View>
+        <View style={authStyles.row}>
+          <View style={examStyles.flexField}>
+            <AuthTextField
+              label="Open from"
+              placeholder="2026-10-13T10:00:00+06:00"
+              value={paperForm.availableFrom}
+              onChangeText={(availableFrom) => setPaperForm((current) => ({ ...current, availableFrom }))}
+              helperText="Optional ISO date/time. Leave blank to open immediately."
+            />
+          </View>
+          <View style={examStyles.flexField}>
+            <AuthTextField
+              label="Open until"
+              placeholder="2026-10-13T12:00:00+06:00"
+              value={paperForm.availableUntil}
+              onChangeText={(availableUntil) => setPaperForm((current) => ({ ...current, availableUntil }))}
+              helperText="Optional ISO date/time. Students cannot start after this."
+            />
+          </View>
+        </View>
         <ThemedText type="caption" style={authStyles.mutedText}>Select questions for this paper.</ThemedText>
         <ScrollView style={examStyles.questionPicker} nestedScrollEnabled>
           {visibleQuestions.map((question) => {
@@ -301,13 +330,24 @@ export function ExamAdminPanel() {
         {papers.map((paper) => (
           <View key={paper.id} style={authStyles.listRow}>
             <ThemedText type="smallBold">{paper.title}</ThemedText>
-            <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.durationMinutes} min · {paper.status}</ThemedText>
+            <ThemedText type="caption" style={authStyles.mutedText}>
+              {paper.questionCount} questions · {paper.durationMinutes} min · {paper.status}
+            </ThemedText>
+            <ThemedText type="caption" style={authStyles.mutedText}>
+              Window: {formatWindow(paper)}
+            </ThemedText>
             <AuthButton label={paper.status === 'published' ? 'Unpublish' : 'Publish'} onPress={() => togglePaperStatus(paper)} variant="secondary" />
           </View>
         ))}
       </ThemedView>
     </ThemedView>
   );
+}
+
+function formatWindow(paper: QuestionPaperDto) {
+  const from = paper.availableFrom ? new Date(paper.availableFrom).toLocaleString() : 'Now';
+  const until = paper.availableUntil ? new Date(paper.availableUntil).toLocaleString() : 'No deadline';
+  return `${from} to ${until}`;
 }
 
 function ChipRow({ items, selectedId, onSelect }: { items: { id: string; label: string }[]; selectedId: string; onSelect: (id: string) => void }) {

@@ -72,6 +72,8 @@ export const examService = {
     durationMinutes: number;
     totalMarks: number;
     questionIds: string[];
+    availableFrom?: string;
+    availableUntil?: string;
     status: string;
   }) {
     return apiRequest<{ questionPaper: QuestionPaperDto }>('/exams/admin/question-papers', {

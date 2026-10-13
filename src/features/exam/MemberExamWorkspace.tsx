@@ -181,6 +181,7 @@ export function MemberExamWorkspace() {
         <View key={paper.id} style={authStyles.listRow}>
           <ThemedText type="smallBold">{paper.title}</ThemedText>
           <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.totalMarks} marks · {paper.durationMinutes} min</ThemedText>
+          <ThemedText type="caption" style={authStyles.mutedText}>Open: {formatWindow(paper)}</ThemedText>
           <AuthButton label="Start exam" onPress={() => startPaper(paper)} />
         </View>
       ))}
@@ -264,3 +265,9 @@ const examStyles = StyleSheet.create({
     color: ExamQuestColors.textPrimary,
   },
 });
+
+function formatWindow(paper: QuestionPaperDto) {
+  const from = paper.availableFrom ? new Date(paper.availableFrom).toLocaleString() : 'Now';
+  const until = paper.availableUntil ? new Date(paper.availableUntil).toLocaleString() : 'No deadline';
+  return `${from} to ${until}`;
+}
