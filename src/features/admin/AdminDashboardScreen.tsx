@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
+import { AppHeaderBar } from '@/components/AppHeaderBar';
+import { DashboardActionCard } from '@/components/DashboardActionCard';
+import { DashboardWorkflowPanel } from '@/components/DashboardWorkflowPanel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { staffPermissions } from '@/constants/Permissions';
 import { authStyles } from '@/features/auth/Auth.styles';
-import { AuthButton, AuthHero, AuthTextField, ScreenStat } from '@/features/auth/components/AuthFields';
+import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields';
 import { ExamAdminPanel } from '@/features/exam/ExamAdminPanel';
 import { getApiErrorMessage } from '@/services/apiClient';
 import { adminService } from '@/services/adminService';
@@ -76,17 +79,14 @@ export function AdminDashboardScreen() {
       <ScrollView contentContainerStyle={authStyles.scrollContent} keyboardShouldPersistTaps="handled">
         <ThemedView style={authStyles.content}>
           <ThemedView style={authStyles.headerBand}>
-            <AuthHero
-              kicker="Admin workspace"
+            <AppHeaderBar
+              kicker={activeSection === 'dashboard' ? 'Admin workspace' : 'ExamQuest admin'}
               title={activeSection === 'dashboard' ? 'Admin Control' : sectionTitles[activeSection]}
-              body={activeSection === 'dashboard' ? 'Open the right workspace from quick links instead of managing everything in one long page.' : 'Use this focused section, then return to the dashboard for another task.'}
-              badges={['Role-based access', 'Admin controlled']}
-              preview="access">
-              <View style={authStyles.statGrid}>
-                <ScreenStat label="Active staff" value={staffCount === null ? '...' : String(staffCount)} />
-                <ScreenStat label="Permissions selected" value={String(selected.length)} />
-              </View>
-            </AuthHero>
+              subtitle={activeSection === 'dashboard' ? `${staffCount === null ? '...' : staffCount} active staff · ${selected.length} permissions selected` : 'Focused workspace'}
+              variant={activeSection === 'dashboard' ? 'dashboard' : 'inner'}
+              canGoBack={activeSection !== 'dashboard'}
+              onBack={() => setActiveSection('dashboard')}
+            />
           </ThemedView>
 
           {activeSection === 'dashboard' ? (
@@ -165,24 +165,25 @@ function AdminQuickLinks({ staffCount, onOpen }: { staffCount: number | null; on
         <ThemedText type="sectionTitle">Quick links</ThemedText>
         <ThemedText type="small" style={authStyles.mutedText}>Choose a focused task. Each area opens as its own workspace.</ThemedText>
       </ThemedView>
+      <DashboardWorkflowPanel
+        title="Build today's exam flow"
+        body="Set the content structure first, import the question bank, then publish a timed paper when it is ready for students."
+        badge="Admin path"
+        steps={[
+          { label: 'Create book and chapter', meta: 'Keep content searchable by subject and class.' },
+          { label: 'Import or write questions', meta: 'Correct option is saved for backend scoring.' },
+          { label: 'Publish scheduled paper', meta: 'Students only see open papers.' },
+        ]}
+      />
       <View style={authStyles.dashboardGrid}>
-        <DashboardCard title="Create staff" meta={`${staffCount === null ? '...' : staffCount} active staff`} primary onPress={() => onOpen('staff')} />
-        <DashboardCard title="Create book" meta="Subject and class setup" onPress={() => onOpen('books')} />
-        <DashboardCard title="Create chapter" meta="Book-wise chapters" onPress={() => onOpen('chapters')} />
-        <DashboardCard title="Import CSV" meta="Bulk MCQ question bank" primary onPress={() => onOpen('import')} />
-        <DashboardCard title="Create question" meta="Manual MCQ entry" onPress={() => onOpen('question')} />
-        <DashboardCard title="Question papers" meta="Build and publish exams" primary onPress={() => onOpen('paper')} />
+        <DashboardActionCard title="Create staff" meta={`${staffCount === null ? '...' : staffCount} active staff`} eyebrow="People" accent="Admin" tone="slate" primary onPress={() => onOpen('staff')} />
+        <DashboardActionCard title="Create book" meta="Subject and class setup" eyebrow="Library" accent="01" tone="green" onPress={() => onOpen('books')} />
+        <DashboardActionCard title="Create chapter" meta="Book-wise chapters" eyebrow="Structure" accent="02" tone="blue" onPress={() => onOpen('chapters')} />
+        <DashboardActionCard title="Import CSV" meta="Bulk MCQ question bank" eyebrow="Question bank" accent="Bulk" tone="amber" primary onPress={() => onOpen('import')} />
+        <DashboardActionCard title="Create question" meta="Manual MCQ entry" eyebrow="Question bank" accent="MCQ" tone="blue" onPress={() => onOpen('question')} />
+        <DashboardActionCard title="Question papers" meta="Build and publish exams" eyebrow="Exam" accent="Live" tone="green" primary onPress={() => onOpen('paper')} />
       </View>
     </ThemedView>
-  );
-}
-
-function DashboardCard({ title, meta, primary, onPress }: { title: string; meta: string; primary?: boolean; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={[authStyles.dashboardCard, primary && authStyles.dashboardCardPrimary]}>
-      <ThemedText type="smallBold" style={authStyles.dashboardCardTitle}>{title}</ThemedText>
-      <ThemedText type="caption" style={authStyles.dashboardCardMeta}>{meta}</ThemedText>
-    </Pressable>
   );
 }
 

@@ -1,12 +1,15 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
+import { AppHeaderBar } from '@/components/AppHeaderBar';
+import { DashboardActionCard } from '@/components/DashboardActionCard';
+import { DashboardWorkflowPanel } from '@/components/DashboardWorkflowPanel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Routes } from '@/constants/Routes';
 import { authStyles } from '@/features/auth/Auth.styles';
-import { AuthButton, AuthHero, ScreenStat } from '@/features/auth/components/AuthFields';
+import { AuthButton } from '@/features/auth/components/AuthFields';
 import { ExamAdminPanel } from '@/features/exam/ExamAdminPanel';
 import { MemberExamWorkspace } from '@/features/exam/MemberExamWorkspace';
 import { useAuth } from '@/store';
@@ -28,17 +31,14 @@ export function RoleHomeScreen() {
       <ScrollView contentContainerStyle={authStyles.scrollContent}>
         <ThemedView style={authStyles.content}>
           <ThemedView style={authStyles.headerBand}>
-            <AuthHero
+            <AppHeaderBar
               kicker={isStaff ? 'Operations' : 'Learning'}
               title={activeTitle}
-              body={`Signed in as ${user?.name || 'ExamQuest user'}`}
-              badges={isStaff ? ['Assigned access', 'Operational workspace'] : ['Member account', 'Exam ready']}
-              preview={isStaff ? 'access' : 'exam'}>
-              <View style={authStyles.statGrid}>
-                <ScreenStat label="Role" value={user?.role || 'Member'} />
-                <ScreenStat label="Status" value={user?.accountStatus || 'Active'} />
-              </View>
-            </AuthHero>
+              subtitle={`${user?.name || 'ExamQuest user'} · ${user?.role || 'Member'} · ${user?.accountStatus || 'Active'}`}
+              variant={(isStaff ? staffSection : memberSection) === 'dashboard' ? 'dashboard' : 'inner'}
+              canGoBack={(isStaff ? staffSection : memberSection) !== 'dashboard'}
+              onBack={() => (isStaff ? setStaffSection('dashboard') : setMemberSection('dashboard'))}
+            />
           </ThemedView>
           <ThemedView style={authStyles.panel}>
             <ThemedView style={authStyles.panelHeader}>
@@ -100,12 +100,23 @@ function StaffQuickLinks({ userPermissions, onOpen }: { userPermissions: string[
         <ThemedText type="small" style={authStyles.mutedText}>Open only the staff task you need right now.</ThemedText>
       </ThemedView>
       <ThemedText type="caption" style={authStyles.mutedText}>Permissions: {userPermissions.join(', ') || 'None assigned'}</ThemedText>
+      <DashboardWorkflowPanel
+        title="Prepare content without leaving your flow"
+        body="Follow the same operational rhythm every time: organize, upload, then publish."
+        badge="Staff path"
+        progress={72}
+        steps={[
+          { label: 'Book/chapter' },
+          { label: 'Question bank' },
+          { label: 'Question paper' },
+        ]}
+      />
       <View style={authStyles.dashboardGrid}>
-        <DashboardCard title="Books" meta="Create and review books" onPress={() => onOpen('books')} />
-        <DashboardCard title="Chapters" meta="Book-wise chapter setup" onPress={() => onOpen('chapters')} />
-        <DashboardCard title="CSV import" meta="Bulk question upload" primary onPress={() => onOpen('import')} />
-        <DashboardCard title="Questions" meta="Manual MCQ entry" onPress={() => onOpen('question')} />
-        <DashboardCard title="Question papers" meta="Publish timed exams" primary onPress={() => onOpen('paper')} />
+        <DashboardActionCard title="Books" meta="Create and review books" eyebrow="Library" accent="01" tone="green" onPress={() => onOpen('books')} />
+        <DashboardActionCard title="Chapters" meta="Book-wise chapter setup" eyebrow="Structure" accent="02" tone="blue" onPress={() => onOpen('chapters')} />
+        <DashboardActionCard title="CSV import" meta="Bulk question upload" eyebrow="Question bank" accent="Bulk" tone="amber" primary onPress={() => onOpen('import')} />
+        <DashboardActionCard title="Questions" meta="Manual MCQ entry" eyebrow="Question bank" accent="MCQ" tone="blue" onPress={() => onOpen('question')} />
+        <DashboardActionCard title="Question papers" meta="Publish timed exams" eyebrow="Exam" accent="Live" tone="green" primary onPress={() => onOpen('paper')} />
       </View>
     </ThemedView>
   );
@@ -118,19 +129,21 @@ function MemberQuickLinks({ onOpen }: { onOpen: (section: MemberSection) => void
         <ThemedText type="sectionTitle">Quick links</ThemedText>
         <ThemedText type="small" style={authStyles.mutedText}>Go straight to exams or review your previous results.</ThemedText>
       </ThemedView>
+      <DashboardWorkflowPanel
+        title="Your exam path"
+        body="Pick a book, start an open paper, then review the score and explanations after submission."
+        badge="Student path"
+        progress={38}
+        steps={[
+          { label: 'Choose book' },
+          { label: 'Answer MCQ' },
+          { label: 'Review result' },
+        ]}
+      />
       <View style={authStyles.dashboardGrid}>
-        <DashboardCard title="Available exams" meta="Book, chapter and paper list" primary onPress={() => onOpen('exams')} />
-        <DashboardCard title="Result history" meta="Submitted attempts and scores" onPress={() => onOpen('history')} />
+        <DashboardActionCard title="Available exams" meta="Book, chapter and paper list" eyebrow="Start" accent="Live" tone="green" primary onPress={() => onOpen('exams')} />
+        <DashboardActionCard title="Result history" meta="Submitted attempts and scores" eyebrow="Review" accent="Score" tone="blue" onPress={() => onOpen('history')} />
       </View>
     </ThemedView>
-  );
-}
-
-function DashboardCard({ title, meta, primary, onPress }: { title: string; meta: string; primary?: boolean; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={[authStyles.dashboardCard, primary && authStyles.dashboardCardPrimary]}>
-      <ThemedText type="smallBold" style={authStyles.dashboardCardTitle}>{title}</ThemedText>
-      <ThemedText type="caption" style={authStyles.dashboardCardMeta}>{meta}</ThemedText>
-    </Pressable>
   );
 }

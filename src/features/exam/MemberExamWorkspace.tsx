@@ -123,6 +123,14 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
             {answeredCount}/{activeAttempt.questions?.length || activePaper.questionCount} answered · {activePaper.durationMinutes} minutes
           </ThemedText>
         </ThemedView>
+        <View style={examStyles.progressTrack}>
+          <View
+            style={[
+              examStyles.progressFill,
+              { width: `${Math.min(100, Math.round((answeredCount / Math.max(activeAttempt.questions?.length || activePaper.questionCount, 1)) * 100))}%` },
+            ]}
+          />
+        </View>
         {activeAttempt.questions?.map((question, index) => (
           <View key={question.id} style={examStyles.questionCard}>
             <ThemedText type="smallBold">Q{index + 1}. {question.text}</ThemedText>
@@ -172,6 +180,7 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
         <>
           <ThemedText type="smallBold">Books</ThemedText>
           <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={(id) => { setSelectedBookId(id); setSelectedChapterId(''); }} />
+          {!books.length && <EmptyState title="No books available" body="Published books will appear here when Admin or Staff prepares the exam library." />}
           {!!selectedBook && <ThemedText type="caption" style={authStyles.mutedText}>{selectedBook.subject} · {selectedBook.className || 'Class open'} · {selectedBook.group || 'All groups'}</ThemedText>}
           <ThemedText type="smallBold">Chapters</ThemedText>
           <ChipRow
@@ -181,11 +190,18 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
           />
           {!!selectedChapter && <ThemedText type="caption" style={authStyles.mutedText}>Filtered by {selectedChapter.title}</ThemedText>}
           <ThemedText type="smallBold">Published papers</ThemedText>
-          {!papers.length && <ThemedText style={authStyles.info}>No published papers yet. Ask Admin or Staff to publish one.</ThemedText>}
+          {!papers.length && <EmptyState title="No open papers" body="No published paper is open for the selected book/chapter right now." />}
           {papers.map((paper) => (
-            <View key={paper.id} style={authStyles.listRow}>
-              <ThemedText type="smallBold">{paper.title}</ThemedText>
-              <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.totalMarks} marks · {paper.durationMinutes} min</ThemedText>
+            <View key={paper.id} style={authStyles.listCard}>
+              <View style={authStyles.listCardHeader}>
+                <View style={authStyles.listCardCopy}>
+                  <ThemedText type="smallBold">{paper.title}</ThemedText>
+                  <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.totalMarks} marks · {paper.durationMinutes} min</ThemedText>
+                </View>
+                <View style={authStyles.workspacePill}>
+                  <ThemedText type="caption" style={authStyles.workspacePillText}>Open</ThemedText>
+                </View>
+              </View>
               <ThemedText type="caption" style={authStyles.mutedText}>Open: {formatWindow(paper)}</ThemedText>
               <AuthButton label="Start exam" onPress={() => startPaper(paper)} />
             </View>
@@ -194,16 +210,32 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
       ) : (
         <>
           <ThemedText type="smallBold">Attempt history</ThemedText>
-          {!attempts.length && <ThemedText type="caption" style={authStyles.mutedText}>No attempts yet.</ThemedText>}
+          {!attempts.length && <EmptyState title="No attempts yet" body="After submitting an exam, your score and percentage will be listed here." />}
           {attempts.map((attempt) => (
-            <View key={attempt.id} style={authStyles.listRow}>
-              <ThemedText type="smallBold">{attempt.paperTitle || 'Question paper'}</ThemedText>
-              <ThemedText type="caption" style={authStyles.mutedText}>{attempt.status} · {attempt.score}/{attempt.total} · {attempt.percentage}%</ThemedText>
+            <View key={attempt.id} style={authStyles.listCard}>
+              <View style={authStyles.listCardHeader}>
+                <View style={authStyles.listCardCopy}>
+                  <ThemedText type="smallBold">{attempt.paperTitle || 'Question paper'}</ThemedText>
+                  <ThemedText type="caption" style={authStyles.mutedText}>{attempt.status} · {attempt.score}/{attempt.total}</ThemedText>
+                </View>
+                <View style={authStyles.workspacePill}>
+                  <ThemedText type="caption" style={authStyles.workspacePillText}>{attempt.percentage}%</ThemedText>
+                </View>
+              </View>
             </View>
           ))}
         </>
       )}
     </ThemedView>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <View style={authStyles.emptyState}>
+      <ThemedText type="smallBold">{title}</ThemedText>
+      <ThemedText type="caption" style={authStyles.mutedText}>{body}</ThemedText>
+    </View>
   );
 }
 
@@ -273,6 +305,17 @@ const examStyles = StyleSheet.create({
   optionText: {
     flex: 1,
     color: ExamQuestColors.textPrimary,
+  },
+  progressTrack: {
+    height: 10,
+    overflow: 'hidden',
+    borderRadius: Radius.sm,
+    backgroundColor: ExamQuestColors.surfaceSoft,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: Radius.sm,
+    backgroundColor: ExamQuestColors.brandPrimary,
   },
 });
 

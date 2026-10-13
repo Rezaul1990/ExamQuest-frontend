@@ -223,6 +223,15 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
         </View>
       )}
 
+      {section !== 'books' && (
+        <WorkspaceSummary
+          label="Current book"
+          title={selectedBook?.title || 'No book selected'}
+          meta={selectedBook ? `${selectedBook.subject || 'Subject open'} · ${selectedBook.className || 'Class open'} · ${selectedBook.group || 'All groups'}` : 'Create a book before building chapters, questions or papers.'}
+          badge={`${selectedBookChapters.length} chapters`}
+        />
+      )}
+
       {loading && <ActivityIndicator />}
       {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
       {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
@@ -241,6 +250,7 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
         </View>
         <AuthButton label="Create book" onPress={createBook} />
         <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={setSelectedBookId} />
+        {!books.length && <EmptyState title="No books yet" body="Create the first book so chapters, questions and papers can be organized properly." />}
       </ThemedView>}
 
       {section === 'chapters' && <ThemedView style={examStyles.section}>
@@ -249,10 +259,14 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
         <AuthTextField label="Chapter title" placeholder="Vector" value={chapterTitle} onChangeText={setChapterTitle} />
         <AuthButton label="Create chapter" onPress={createChapter} variant="secondary" />
         <ChipRow items={selectedBookChapters.map((chapter) => ({ id: chapter.id, label: chapter.title }))} selectedId={questionForm.chapterId} onSelect={(chapterId) => setQuestionForm((current) => ({ ...current, chapterId }))} />
+        {!selectedBookChapters.length && <EmptyState title="No chapters for this book" body="Add chapters first, then imported and manual questions can attach to the right chapter." />}
       </ThemedView>}
 
       {section === 'import' && <ThemedView style={examStyles.section}>
         <ThemedText type="smallBold">3. CSV import</ThemedText>
+        <ThemedText type="caption" style={authStyles.mutedText}>
+          Required columns: book, chapter, question, optionA, optionB, optionC, optionD, correctOption. The correct option is saved for backend scoring.
+        </ThemedText>
         <TextInput
           accessibilityLabel="CSV import text"
           multiline
@@ -267,6 +281,7 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
           <View style={examStyles.flexField}><AuthButton label="Preview CSV" onPress={previewCsv} variant="secondary" /></View>
           <View style={examStyles.flexField}><AuthButton label="Import valid rows" onPress={commitCsv} /></View>
         </View>
+        {!validRows.length && <EmptyState title="Preview before import" body="Paste CSV data, preview validation, then import only the valid rows into the question bank." />}
       </ThemedView>}
 
       {section === 'question' && <ThemedView style={examStyles.section}>
@@ -320,6 +335,7 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
         </View>
         <ThemedText type="caption" style={authStyles.mutedText}>Select questions for this paper.</ThemedText>
         <ScrollView style={examStyles.questionPicker} nestedScrollEnabled>
+          {!visibleQuestions.length && <EmptyState title="No questions ready" body="Import CSV rows or create manual questions before building a question paper." />}
           {visibleQuestions.map((question) => {
             const checked = selectedQuestionIds.includes(question.id);
             return (
@@ -337,17 +353,25 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
         </ScrollView>
         <AuthButton label="Create question paper" onPress={createPaper} />
         {papers.map((paper) => (
-          <View key={paper.id} style={authStyles.listRow}>
-            <ThemedText type="smallBold">{paper.title}</ThemedText>
-            <ThemedText type="caption" style={authStyles.mutedText}>
-              {paper.questionCount} questions · {paper.durationMinutes} min · {paper.status}
-            </ThemedText>
+          <View key={paper.id} style={authStyles.listCard}>
+            <View style={authStyles.listCardHeader}>
+              <View style={authStyles.listCardCopy}>
+                <ThemedText type="smallBold">{paper.title}</ThemedText>
+                <ThemedText type="caption" style={authStyles.mutedText}>
+                  {paper.questionCount} questions · {paper.durationMinutes} min · {paper.totalMarks} marks
+                </ThemedText>
+              </View>
+              <View style={authStyles.workspacePill}>
+                <ThemedText type="caption" style={authStyles.workspacePillText}>{paper.status}</ThemedText>
+              </View>
+            </View>
             <ThemedText type="caption" style={authStyles.mutedText}>
               Window: {formatWindow(paper)}
             </ThemedText>
             <AuthButton label={paper.status === 'published' ? 'Unpublish' : 'Publish'} onPress={() => togglePaperStatus(paper)} variant="secondary" />
           </View>
         ))}
+        {!papers.length && <EmptyState title="No question papers yet" body="Select questions, set duration/marks and publish when the exam window is ready." />}
       </ThemedView>}
     </ThemedView>
   );
@@ -373,6 +397,32 @@ function formatWindow(paper: QuestionPaperDto) {
   const from = paper.availableFrom ? new Date(paper.availableFrom).toLocaleString() : 'Now';
   const until = paper.availableUntil ? new Date(paper.availableUntil).toLocaleString() : 'No deadline';
   return `${from} to ${until}`;
+}
+
+function WorkspaceSummary({ label, title, meta, badge }: { label: string; title: string; meta: string; badge: string }) {
+  return (
+    <View style={authStyles.workspaceToolbar}>
+      <View style={authStyles.workspaceToolbarRow}>
+        <View style={authStyles.listCardCopy}>
+          <ThemedText type="caption" style={authStyles.mutedText}>{label}</ThemedText>
+          <ThemedText type="smallBold">{title}</ThemedText>
+          <ThemedText type="caption" style={authStyles.mutedText}>{meta}</ThemedText>
+        </View>
+        <View style={authStyles.workspacePill}>
+          <ThemedText type="caption" style={authStyles.workspacePillText}>{badge}</ThemedText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <View style={authStyles.emptyState}>
+      <ThemedText type="smallBold">{title}</ThemedText>
+      <ThemedText type="caption" style={authStyles.mutedText}>{body}</ThemedText>
+    </View>
+  );
 }
 
 function ChipRow({ items, selectedId, onSelect }: { items: { id: string; label: string }[]; selectedId: string; onSelect: (id: string) => void }) {

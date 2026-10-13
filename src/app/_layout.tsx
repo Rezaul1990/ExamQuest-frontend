@@ -1,9 +1,9 @@
 import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { StatusBar, useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import { AuthHeaderUser } from '@/components/auth-header-user';
+import { AppHeaderBar } from '@/components/AppHeaderBar';
 import { AuthProvider } from '@/store';
 
 SplashScreen.preventAutoHideAsync();
@@ -13,15 +13,23 @@ export default function TabLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
+        <StatusBar barStyle="light-content" backgroundColor="#135083" translucent={false} />
         <AnimatedSplashOverlay />
         <Stack
           screenOptions={{
             headerShown: true,
-            headerStyle: { backgroundColor: '#FFFFFF' },
+            header: ({ options, navigation, back }) => (
+              <AppHeaderBar
+                title={typeof options.title === 'string' ? options.title : 'ExamQuest'}
+                variant="route"
+                canGoBack={!!back}
+                onBack={() => navigation.goBack()}
+              />
+            ),
+            headerStyle: { backgroundColor: '#135083' },
             headerShadowVisible: false,
-            headerTintColor: '#146C5D',
-            headerTitleStyle: { color: '#0F172A', fontWeight: '700' },
-            headerRight: () => <AuthHeaderUser />,
+            headerTintColor: '#FFFFFF',
+            headerTitleStyle: { color: '#FFFFFF', fontWeight: '700' },
             headerBackTitle: 'Back',
             animation: 'slide_from_right',
             animationDuration: 260,
