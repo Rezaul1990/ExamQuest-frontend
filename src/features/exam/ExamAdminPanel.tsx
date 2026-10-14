@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
 import { authStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthTextField, ScreenStat } from '@/features/auth/components/AuthFields';
-import type { ExamBookDto, ExamChapterDto, ExamQuestionDto, ImportRowDto, OptionKey, QuestionPaperDto } from '@/models/api/ExamApi';
+import type { ExamBookDto, ExamChapterDto, ExamQuestionDto, ImportCommitDto, ImportPreviewDto, ImportPreviewRowDto, ImportRowDto, OptionKey, QuestionPaperDto } from '@/models/api/ExamApi';
 import { getApiErrorMessage } from '@/services/apiClient';
 import { examService } from '@/services/examService';
 
@@ -16,7 +17,7 @@ const csvSample =
 
 type ExamAdminSection = 'books' | 'chapters' | 'import' | 'question' | 'paper';
 
-export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAdminSection; onBack?: () => void }) {
+export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { section?: ExamAdminSection; onBack?: () => void; onOpenSection?: (section: ExamAdminSection) => void }) {
   const [books, setBooks] = useState<ExamBookDto[]>([]);
   const [chapters, setChapters] = useState<ExamChapterDto[]>([]);
   const [questions, setQuestions] = useState<ExamQuestionDto[]>([]);
@@ -39,13 +40,19 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
     title: '',
     durationMinutes: '20',
     totalMarks: '20',
+    passMark: '8',
     availableFrom: '',
     availableUntil: '',
     status: 'draft',
   });
   const [csvText, setCsvText] = useState(csvSample);
+  const [csvFileName, setCsvFileName] = useState('Sample CSV');
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRowDto[]>([]);
   const [validRows, setValidRows] = useState<ImportRowDto[]>([]);
   const [previewMessage, setPreviewMessage] = useState('');
+  const [importSummary, setImportSummary] = useState<ImportCommitDto | null>(null);
+  const [showImportReceipt, setShowImportReceipt] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -142,27 +149,108 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
     }
   }
 
-  async function previewCsv() {
+  async function deleteQuestion(question: ExamQuestionDto) {
     setError(null);
     try {
-      const result = await examService.previewImport(csvText);
-      setValidRows(result.validRows);
-      setPreviewMessage(`${result.validCount} valid rows, ${result.invalidCount} invalid rows.`);
+      await examService.deleteQuestion(question.id);
+      setQuestions((current) => current.filter((item) => item.id !== question.id));
+      setSelectedQuestionIds((current) => current.filter((id) => id !== question.id));
+      setPreviewRows((current) => current.filter((row) => row.existingQuestionId !== question.id));
+      setValidRows((current) => current.filter((row) => row.question !== question.text));
+      setMessage('Question deleted. You can preview/import the CSV again if needed.');
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
+    }
+  }
+
+  function confirmDeleteQuestion(question: ExamQuestionDto) {
+    Alert.alert(
+      'Delete question?',
+      'This removes the question from Question Bank. It is allowed only when the question is not used in an active question paper.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteQuestion(question) },
+      ]
+    );
+  }
+
+  async function deleteDuplicateQuestion(row: ImportPreviewRowDto) {
+    if (!row.existingQuestionId) return;
+    const question = questions.find((item) => item.id === row.existingQuestionId) || {
+      id: row.existingQuestionId,
+      bookId: selectedBookId,
+      chapterId: questionForm.chapterId,
+      text: row.data.question,
+      options: [],
+      difficulty: row.data.difficulty || 'medium',
+      status: 'active',
+    } as ExamQuestionDto;
+    await deleteQuestion(question);
+    setPreviewMessage('Duplicate question deleted. Preview the CSV again before importing.');
+  }
+
+  async function previewCsv() {
+    if (!csvText.trim()) return setError('Select or paste a CSV file first.');
+    setError(null);
+    setImportBusy(true);
+    try {
+      const result = await examService.previewImport(csvText);
+      setPreviewRows(result.rows);
+      setValidRows(result.validRows);
+      setImportSummary(null);
+      setPreviewMessage(buildPreviewMessage(result));
+    } catch (submitError) {
+      setError(getApiErrorMessage(submitError));
+    } finally {
+      setImportBusy(false);
     }
   }
 
   async function commitCsv() {
     if (!validRows.length) return setError('Preview CSV first and make sure at least one row is valid.');
     setError(null);
+    setImportBusy(true);
     try {
       const result = await examService.commitImport(validRows);
-      setMessage(`${result.importedCount} questions imported.`);
+      setImportSummary(result);
+      setShowImportReceipt(true);
+      setMessage(result.summary || `${result.importedCount} questions imported.`);
+      if (result.questions.length) {
+        setQuestions((current) => [...result.questions, ...current.filter((question) => !result.questions.some((item) => item.id === question.id))]);
+        setSelectedBookId(result.questions[0].bookId);
+        setQuestionForm((current) => ({ ...current, chapterId: result.questions[0].chapterId }));
+      }
+      setPreviewRows([]);
       setValidRows([]);
       await refreshAll();
+      if (result.questions[0]?.bookId) await refreshBookData(result.questions[0].bookId);
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function pickCsvFile() {
+    setError(null);
+    setImportSummary(null);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/comma-separated-values', 'application/vnd.ms-excel', 'text/plain'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset) return;
+      const content = asset.file ? await asset.file.text() : await fetch(asset.uri).then((response) => response.text());
+      setCsvFileName(asset.name || 'Selected CSV');
+      setCsvText(content);
+      setPreviewRows([]);
+      setValidRows([]);
+      setPreviewMessage('CSV loaded. Preview it before importing.');
+    } catch {
+      setError('Could not read the selected CSV file. Try a plain UTF-8 .csv file.');
     }
   }
 
@@ -172,6 +260,7 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
 
   async function createPaper() {
     if (!selectedBookId || !selectedQuestionIds.length) return setError('Select a book and at least one question.');
+    if (Number(paperForm.passMark) > Number(paperForm.totalMarks)) return setError('Pass mark cannot be greater than total marks.');
     setError(null);
     try {
       const result = await examService.createQuestionPaper({
@@ -183,11 +272,12 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
         questionIds: selectedQuestionIds,
         availableFrom: paperForm.availableFrom || undefined,
         availableUntil: paperForm.availableUntil || undefined,
+        passMark: Number(paperForm.passMark),
         status: paperForm.status,
       });
       setPapers((current) => [result.questionPaper, ...current]);
       setSelectedQuestionIds([]);
-      setPaperForm({ title: '', durationMinutes: '20', totalMarks: '20', availableFrom: '', availableUntil: '', status: 'draft' });
+      setPaperForm({ title: '', durationMinutes: '20', totalMarks: '20', passMark: '8', availableFrom: '', availableUntil: '', status: 'draft' });
       setMessage('Question paper created.');
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
@@ -203,6 +293,33 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
     }
+  }
+
+  async function deletePaper(paper: QuestionPaperDto) {
+    setError(null);
+    try {
+      const result = await examService.deleteQuestionPaper(paper.id);
+      setPapers((current) => current.filter((item) => item.id !== paper.id));
+      setMessage(
+        result.deletedMode === 'archived'
+          ? `Question paper removed from admin/member lists. ${result.attemptCount} attempt record kept safely.`
+          : 'Question paper deleted. Its questions remain reusable in Question Bank.'
+      );
+      if (selectedBookId) await refreshBookData(selectedBookId);
+    } catch (submitError) {
+      setError(getApiErrorMessage(submitError));
+    }
+  }
+
+  function confirmDeletePaper(paper: QuestionPaperDto) {
+    Alert.alert(
+      'Delete question paper?',
+      'This removes the paper from exam lists. The original questions will stay in Question Bank and can be used again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deletePaper(paper) },
+      ]
+    );
   }
 
   return (
@@ -265,23 +382,57 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
       {section === 'import' && <ThemedView style={examStyles.section}>
         <ThemedText type="smallBold">3. CSV import</ThemedText>
         <ThemedText type="caption" style={authStyles.mutedText}>
-          Required columns: book, chapter, question, optionA, optionB, optionC, optionD, correctOption. The correct option is saved for backend scoring.
+          Select a CSV file or paste rows. Maximum 50 MCQs per import. correctOption must be A/B/C/D and difficulty must be easy/medium/hard.
         </ThemedText>
+        <View style={examStyles.importToolbar}>
+          <View style={examStyles.importFileCopy}>
+            <ThemedText type="caption" style={authStyles.mutedText}>Selected file</ThemedText>
+            <ThemedText type="smallBold">{csvFileName}</ThemedText>
+          </View>
+          <AuthButton label="Select CSV" onPress={pickCsvFile} variant="secondary" />
+        </View>
         <TextInput
           accessibilityLabel="CSV import text"
           multiline
           value={csvText}
-          onChangeText={setCsvText}
+          onChangeText={(text) => {
+            setCsvText(text);
+            setCsvFileName('Pasted CSV');
+            setPreviewRows([]);
+            setValidRows([]);
+            setImportSummary(null);
+          }}
           placeholder="Paste CSV rows here"
           placeholderTextColor={ExamQuestColors.textMuted}
           style={examStyles.textArea}
         />
-        {!!previewMessage && <ThemedText style={authStyles.info}>{previewMessage}</ThemedText>}
-        <View style={authStyles.row}>
-          <View style={examStyles.flexField}><AuthButton label="Preview CSV" onPress={previewCsv} variant="secondary" /></View>
-          <View style={examStyles.flexField}><AuthButton label="Import valid rows" onPress={commitCsv} /></View>
+        <View style={authStyles.statGrid}>
+          <ScreenStat label="Preview rows" value={String(previewRows.length)} />
+          <ScreenStat label="Valid" value={String(validRows.length)} />
+          <ScreenStat label="Invalid" value={String(Math.max(0, previewRows.length - validRows.length))} />
         </View>
-        {!validRows.length && <EmptyState title="Preview before import" body="Paste CSV data, preview validation, then import only the valid rows into the question bank." />}
+        {!!previewMessage && <ThemedText style={authStyles.info}>{previewMessage}</ThemedText>}
+        {importSummary && (
+          <ThemedText style={authStyles.notice}>
+            Imported {importSummary.importedCount}; duplicate skipped {importSummary.skippedDuplicateCount}; invalid {importSummary.invalidCount}.
+          </ThemedText>
+        )}
+        <View style={authStyles.row}>
+          <View style={examStyles.flexField}><AuthButton label={importBusy ? 'Checking...' : 'Preview CSV'} onPress={previewCsv} variant="secondary" /></View>
+          <View style={examStyles.flexField}><AuthButton label={importBusy ? 'Saving...' : 'Import valid rows'} onPress={commitCsv} /></View>
+        </View>
+        {importBusy && <ActivityIndicator />}
+        <ImportSuccessModal
+          visible={showImportReceipt}
+          summary={importSummary}
+          onClose={() => setShowImportReceipt(false)}
+          onBuildPaper={() => {
+            setShowImportReceipt(false);
+            onOpenSection?.('paper');
+          }}
+        />
+        {!previewRows.length && <EmptyState title="Preview before import" body="Select a CSV file, preview validation, then import only clean rows into the question bank." />}
+        {!!previewRows.length && <ImportPreviewList rows={previewRows} onDeleteDuplicate={deleteDuplicateQuestion} />}
       </ThemedView>}
 
       {section === 'question' && <ThemedView style={examStyles.section}>
@@ -299,6 +450,21 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
         />
         <AuthTextField label="Explanation" placeholder="Short explanation" value={questionForm.explanation} onChangeText={(explanation) => setQuestionForm((current) => ({ ...current, explanation }))} />
         <AuthButton label="Create question" onPress={createQuestion} />
+        <ThemedText type="smallBold">Questions in selected book</ThemedText>
+        <ScrollView style={examStyles.questionPicker} nestedScrollEnabled>
+          {!visibleQuestions.length && <EmptyState title="No questions found" body="Imported and manually created questions for this book will appear here." />}
+          {visibleQuestions.map((question) => (
+            <View key={question.id} style={authStyles.listCard}>
+              <View style={authStyles.listCardHeader}>
+                <View style={authStyles.listCardCopy}>
+                  <ThemedText type="smallBold">{question.text}</ThemedText>
+                  <ThemedText type="caption" style={authStyles.mutedText}>Correct: {question.correctOption} · {question.difficulty}</ThemedText>
+                </View>
+              </View>
+              <AuthButton label="Delete question" onPress={() => confirmDeleteQuestion(question)} variant="secondary" />
+            </View>
+          ))}
+        </ScrollView>
       </ThemedView>}
 
       {section === 'paper' && <ThemedView style={examStyles.section}>
@@ -311,6 +477,9 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
           </View>
           <View style={examStyles.flexField}>
             <AuthTextField label="Marks" placeholder="20" value={paperForm.totalMarks} onChangeText={(totalMarks) => setPaperForm((current) => ({ ...current, totalMarks }))} keyboardType="numeric" />
+          </View>
+          <View style={examStyles.flexField}>
+            <AuthTextField label="Pass mark" placeholder="8" value={paperForm.passMark} onChangeText={(passMark) => setPaperForm((current) => ({ ...current, passMark }))} keyboardType="numeric" />
           </View>
         </View>
         <View style={authStyles.row}>
@@ -358,7 +527,7 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
               <View style={authStyles.listCardCopy}>
                 <ThemedText type="smallBold">{paper.title}</ThemedText>
                 <ThemedText type="caption" style={authStyles.mutedText}>
-                  {paper.questionCount} questions · {paper.durationMinutes} min · {paper.totalMarks} marks
+                  {paper.questionCount} questions · {paper.durationMinutes} min · {paper.totalMarks} marks · pass {paper.passMark}
                 </ThemedText>
               </View>
               <View style={authStyles.workspacePill}>
@@ -369,6 +538,7 @@ export function ExamAdminPanel({ section = 'books', onBack }: { section?: ExamAd
               Window: {formatWindow(paper)}
             </ThemedText>
             <AuthButton label={paper.status === 'published' ? 'Unpublish' : 'Publish'} onPress={() => togglePaperStatus(paper)} variant="secondary" />
+            <AuthButton label="Delete paper" onPress={() => confirmDeletePaper(paper)} variant="secondary" />
           </View>
         ))}
         {!papers.length && <EmptyState title="No question papers yet" body="Select questions, set duration/marks and publish when the exam window is ready." />}
@@ -399,6 +569,11 @@ function formatWindow(paper: QuestionPaperDto) {
   return `${from} to ${until}`;
 }
 
+function buildPreviewMessage(result: ImportPreviewDto) {
+  const base = `${result.validCount} valid, ${result.invalidCount} invalid, ${result.duplicateCount} duplicate.`;
+  return result.errors?.length ? `${base}\n${result.errors.join('\n')}` : base;
+}
+
 function WorkspaceSummary({ label, title, meta, badge }: { label: string; title: string; meta: string; badge: string }) {
   return (
     <View style={authStyles.workspaceToolbar}>
@@ -422,6 +597,85 @@ function EmptyState({ title, body }: { title: string; body: string }) {
       <ThemedText type="smallBold">{title}</ThemedText>
       <ThemedText type="caption" style={authStyles.mutedText}>{body}</ThemedText>
     </View>
+  );
+}
+
+function ImportPreviewList({ rows, onDeleteDuplicate }: { rows: ImportPreviewRowDto[]; onDeleteDuplicate: (row: ImportPreviewRowDto) => void }) {
+  return (
+    <View style={examStyles.previewList}>
+      {rows.map((row) => {
+        const invalid = row.errors.length > 0;
+        return (
+          <View key={`${row.rowNumber}-${row.data.question}`} style={[examStyles.previewRow, invalid && examStyles.previewRowInvalid]}>
+            <View style={authStyles.listCardHeader}>
+              <View style={authStyles.listCardCopy}>
+                <ThemedText type="smallBold">Row {row.rowNumber}: {row.data.question || 'Missing question'}</ThemedText>
+                <ThemedText type="caption" style={authStyles.mutedText}>
+                  {row.data.className || 'Class open'} · {row.data.group || 'All groups'} · {row.data.subject || row.data.book || 'Subject'} · {row.data.chapter || 'Chapter'}
+                </ThemedText>
+              </View>
+              <View style={[authStyles.workspacePill, invalid && examStyles.previewPillInvalid]}>
+                <ThemedText type="caption" style={[authStyles.workspacePillText, invalid && examStyles.previewPillTextInvalid]}>
+                  {invalid ? 'Fix' : 'Valid'}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText type="caption" style={authStyles.mutedText}>
+              A {row.data.optionA || '-'} · B {row.data.optionB || '-'} · C {row.data.optionC || '-'} · D {row.data.optionD || '-'} · Correct {row.data.correctOption || '-'} · {row.data.difficulty || 'medium'}
+            </ThemedText>
+            {invalid && <ThemedText type="caption" style={authStyles.error}>{row.errors.join('\n')}</ThemedText>}
+            {row.existingQuestionId && (
+              <AuthButton label="Delete existing question" onPress={() => onDeleteDuplicate(row)} variant="secondary" />
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function ImportSuccessModal({
+  visible,
+  summary,
+  onClose,
+  onBuildPaper,
+}: {
+  visible: boolean;
+  summary: ImportCommitDto | null;
+  onClose: () => void;
+  onBuildPaper: () => void;
+}) {
+  if (!summary) return null;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={examStyles.modalScrim}>
+        <View style={examStyles.successDialog}>
+          <View style={examStyles.successMark}>
+            <ThemedText style={examStyles.successMarkText}>✓</ThemedText>
+          </View>
+          <ThemedText type="sectionTitle">Questions imported</ThemedText>
+          <ThemedText type="small" style={authStyles.mutedText}>
+            {summary.importedCount} question saved to Question Bank. {summary.skippedDuplicateCount} duplicate skipped and {summary.invalidCount} invalid row rejected.
+          </ThemedText>
+          <View style={authStyles.statGrid}>
+            <ScreenStat label="Saved" value={String(summary.importedCount)} />
+            <ScreenStat label="Skipped" value={String(summary.skippedDuplicateCount)} />
+            <ScreenStat label="Invalid" value={String(summary.invalidCount)} />
+          </View>
+          <ThemedText style={authStyles.info}>
+            Students will see these only after you create and publish a Question Paper from the imported question IDs.
+          </ThemedText>
+          <View style={authStyles.row}>
+            <View style={examStyles.flexField}>
+              <AuthButton label="Later" onPress={onClose} variant="secondary" />
+            </View>
+            <View style={examStyles.flexField}>
+              <AuthButton label="Build paper" onPress={onBuildPaper} />
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -485,7 +739,66 @@ const examStyles = StyleSheet.create({
     backgroundColor: ExamQuestColors.surface,
     textAlignVertical: 'top',
   },
+  importToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexWrap: 'wrap',
+  },
+  importFileCopy: {
+    flex: 1,
+    minWidth: 170,
+  },
+  previewList: {
+    gap: Spacing.two,
+  },
+  previewRow: {
+    borderWidth: 1,
+    borderColor: ExamQuestColors.border,
+    borderRadius: Radius.md,
+    backgroundColor: ExamQuestColors.surface,
+    padding: Spacing.twoHalf,
+    gap: Spacing.one,
+  },
+  previewRowInvalid: {
+    borderColor: ExamQuestColors.error,
+    backgroundColor: ExamQuestColors.errorSoft,
+  },
+  previewPillInvalid: {
+    backgroundColor: ExamQuestColors.errorSoft,
+    borderColor: ExamQuestColors.error,
+  },
+  previewPillTextInvalid: {
+    color: ExamQuestColors.error,
+  },
   questionPicker: {
     maxHeight: 260,
+  },
+  modalScrim: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: Spacing.four,
+    backgroundColor: 'rgba(11, 18, 32, 0.48)',
+  },
+  successDialog: {
+    gap: Spacing.three,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: ExamQuestColors.border,
+    padding: Spacing.four,
+    backgroundColor: ExamQuestColors.surface,
+  },
+  successMark: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: ExamQuestColors.successSoft,
+  },
+  successMarkText: {
+    color: ExamQuestColors.success,
+    fontSize: 24,
+    fontWeight: '900',
   },
 });

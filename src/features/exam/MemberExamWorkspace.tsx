@@ -30,6 +30,15 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
   const selectedBook = books.find((book) => book.id === selectedBookId);
   const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId);
   const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
+  const submittedPaperIds = useMemo(
+    () => new Set(attempts.filter((attempt) => attempt.status === 'submitted').map((attempt) => attempt.questionPaperId)),
+    [attempts]
+  );
+  const inProgressPaperIds = useMemo(
+    () => new Set(attempts.filter((attempt) => attempt.status === 'in_progress').map((attempt) => attempt.questionPaperId)),
+    [attempts]
+  );
+  const visiblePapers = useMemo(() => papers.filter((paper) => !submittedPaperIds.has(paper.id)), [papers, submittedPaperIds]);
 
   const loadBook = useCallback(async (bookId: string, chapterId?: string) => {
     try {
@@ -107,6 +116,7 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
       setMessage(`Submitted. Score ${submitted.attempt.score}/${submitted.attempt.total}.`);
       const attemptResult = await examService.listAttempts();
       setAttempts(attemptResult.attempts);
+      if (selectedBookId) await loadBook(selectedBookId, selectedChapterId);
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
     } finally {
@@ -165,7 +175,7 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
       </ThemedView>
       <View style={authStyles.statGrid}>
         <ScreenStat label="Books" value={String(books.length)} />
-        <ScreenStat label="Available papers" value={String(papers.length)} />
+        <ScreenStat label="Available papers" value={String(visiblePapers.length)} />
         <ScreenStat label="Attempts" value={String(attempts.length)} />
       </View>
       {loading && <ActivityIndicator />}
@@ -190,22 +200,25 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
           />
           {!!selectedChapter && <ThemedText type="caption" style={authStyles.mutedText}>Filtered by {selectedChapter.title}</ThemedText>}
           <ThemedText type="smallBold">Published papers</ThemedText>
-          {!papers.length && <EmptyState title="No open papers" body="No published paper is open for the selected book/chapter right now." />}
-          {papers.map((paper) => (
+          {!visiblePapers.length && <EmptyState title="No open papers" body="No published paper is open for the selected book/chapter right now, or you already submitted the available paper." />}
+          {visiblePapers.map((paper) => {
+            const inProgress = inProgressPaperIds.has(paper.id);
+            return (
             <View key={paper.id} style={authStyles.listCard}>
               <View style={authStyles.listCardHeader}>
                 <View style={authStyles.listCardCopy}>
                   <ThemedText type="smallBold">{paper.title}</ThemedText>
-                  <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.totalMarks} marks · {paper.durationMinutes} min</ThemedText>
+                  <ThemedText type="caption" style={authStyles.mutedText}>{paper.questionCount} questions · {paper.totalMarks} marks · pass {paper.passMark} · {paper.durationMinutes} min</ThemedText>
                 </View>
                 <View style={authStyles.workspacePill}>
-                  <ThemedText type="caption" style={authStyles.workspacePillText}>Open</ThemedText>
+                  <ThemedText type="caption" style={authStyles.workspacePillText}>{inProgress ? 'Continue' : 'Open'}</ThemedText>
                 </View>
               </View>
               <ThemedText type="caption" style={authStyles.mutedText}>Open: {formatWindow(paper)}</ThemedText>
-              <AuthButton label="Start exam" onPress={() => startPaper(paper)} />
+              <AuthButton label={inProgress ? 'Continue exam' : 'Start exam'} onPress={() => startPaper(paper)} />
             </View>
-          ))}
+            );
+          })}
         </>
       ) : (
         <>

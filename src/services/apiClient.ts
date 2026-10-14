@@ -48,6 +48,15 @@ export function getApiErrorMessage(error: unknown) {
     if (error.code === 'RATE_LIMITED') {
       return 'Too many attempts. Please wait and try again.';
     }
+    if (error.code === 'EXAM_ALREADY_SUBMITTED') {
+      return 'You have already submitted this exam. Check Result history for your score.';
+    }
+    if (error.code === 'QUESTION_PAPER_NOT_OPEN') {
+      return 'This question paper is not open right now.';
+    }
+    if (error.code === 'QUESTION_IN_USE') {
+      return 'This question is already used in a question paper. Delete that paper first, then delete/import this question.';
+    }
     return error.code || error.message;
   }
   return 'Network or server error. Please check your connection and try again.';

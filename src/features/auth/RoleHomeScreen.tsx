@@ -62,7 +62,7 @@ export function RoleHomeScreen() {
             </Link>
           </ThemedView>
           {isStaff ? (
-            staffSection === 'dashboard' ? <StaffQuickLinks userPermissions={user?.permissions || []} onOpen={setStaffSection} /> : <ExamAdminPanel section={staffSection} onBack={() => setStaffSection('dashboard')} />
+            staffSection === 'dashboard' ? <StaffQuickLinks userPermissions={user?.permissions || []} onOpen={setStaffSection} /> : <ExamAdminPanel section={staffSection} onBack={() => setStaffSection('dashboard')} onOpenSection={setStaffSection} />
           ) : (
             memberSection === 'dashboard' ? <MemberQuickLinks onOpen={setMemberSection} /> : <MemberExamWorkspace section={memberSection} onBack={() => setMemberSection('dashboard')} />
           )}

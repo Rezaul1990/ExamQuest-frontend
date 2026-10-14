@@ -134,7 +134,7 @@ export function AdminDashboardScreen() {
               {loading ? <ActivityIndicator /> : <AuthButton label="Create staff account" onPress={submit} disabled={loading} />}
             </ThemedView>
           ) : (
-            <ExamAdminPanel section={activeSection} onBack={() => setActiveSection('dashboard')} />
+            <ExamAdminPanel section={activeSection} onBack={() => setActiveSection('dashboard')} onOpenSection={setActiveSection} />
           )}
         </ThemedView>
       </ScrollView>

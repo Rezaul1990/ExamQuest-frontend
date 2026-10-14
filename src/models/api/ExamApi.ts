@@ -36,9 +36,13 @@ export type QuestionPaperDto = {
   id: string;
   title: string;
   bookId: string;
+  subject?: string;
+  className?: string;
+  group?: string;
   chapterIds: string[];
   durationMinutes: number;
   totalMarks: number;
+  passMark: number;
   questionCount: number;
   availableFrom?: string;
   availableUntil?: string;
@@ -65,6 +69,27 @@ export type ImportPreviewRowDto = {
   rowNumber: number;
   data: ImportRowDto;
   errors: string[];
+  duplicate?: boolean;
+  existingQuestionId?: string;
+};
+
+export type ImportPreviewDto = {
+  rows: ImportPreviewRowDto[];
+  validRows: ImportRowDto[];
+  validCount: number;
+  invalidCount: number;
+  duplicateCount: number;
+  errors?: string[];
+};
+
+export type ImportCommitDto = {
+  importedCount: number;
+  skippedDuplicateCount: number;
+  invalidCount: number;
+  rows: ImportPreviewRowDto[];
+  skippedRows?: { data: ImportRowDto; reason: string }[];
+  questions: ExamQuestionDto[];
+  summary: string;
 };
 
 export type ExamAttemptDto = {
@@ -85,4 +110,11 @@ export type ExamAttemptDto = {
   status: 'in_progress' | 'submitted';
   startedAt: string;
   submittedAt?: string;
+};
+
+export type DeleteQuestionPaperDto = {
+  deletedMode: 'deleted' | 'archived';
+  questionPaperId?: string;
+  questionPaper?: QuestionPaperDto;
+  attemptCount: number;
 };

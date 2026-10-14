@@ -1,9 +1,11 @@
 import type {
+  DeleteQuestionPaperDto,
   ExamAttemptDto,
   ExamBookDto,
   ExamChapterDto,
   ExamQuestionDto,
-  ImportPreviewRowDto,
+  ImportCommitDto,
+  ImportPreviewDto,
   ImportRowDto,
   OptionKey,
   QuestionPaperDto,
@@ -50,14 +52,14 @@ export const examService = {
   }) {
     return apiRequest<{ question: ExamQuestionDto }>('/exams/admin/questions', { method: 'POST', body: JSON.stringify(payload) });
   },
+  deleteQuestion(id: string) {
+    return apiRequest<{ deletedQuestionId: string }>(`/exams/admin/questions/${id}`, { method: 'DELETE' });
+  },
   previewImport(csvText: string) {
-    return apiRequest<{ rows: ImportPreviewRowDto[]; validRows: ImportRowDto[]; validCount: number; invalidCount: number }>(
-      '/exams/admin/questions/import/preview',
-      { method: 'POST', body: JSON.stringify({ csvText }) }
-    );
+    return apiRequest<ImportPreviewDto>('/exams/admin/questions/import/preview', { method: 'POST', body: JSON.stringify({ csvText }) });
   },
   commitImport(rows: ImportRowDto[]) {
-    return apiRequest<{ importedCount: number; questions: ExamQuestionDto[] }>('/exams/admin/questions/import/commit', {
+    return apiRequest<ImportCommitDto>('/exams/admin/questions/import/commit', {
       method: 'POST',
       body: JSON.stringify({ rows }),
     });
@@ -71,6 +73,7 @@ export const examService = {
     chapterIds: string[];
     durationMinutes: number;
     totalMarks: number;
+    passMark: number;
     questionIds: string[];
     availableFrom?: string;
     availableUntil?: string;
@@ -86,6 +89,9 @@ export const examService = {
       method: 'POST',
       body: JSON.stringify({ status }),
     });
+  },
+  deleteQuestionPaper(id: string) {
+    return apiRequest<DeleteQuestionPaperDto>(`/exams/admin/question-papers/${id}`, { method: 'DELETE' });
   },
   listBooks() {
     return apiRequest<{ books: ExamBookDto[] }>('/exams/books');
