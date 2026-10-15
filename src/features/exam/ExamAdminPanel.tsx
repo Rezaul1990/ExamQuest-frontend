@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
@@ -10,6 +10,12 @@ import { AuthButton, AuthTextField, ScreenStat } from '@/features/auth/component
 import type { ExamBookDto, ExamChapterDto, ExamQuestionDto, ImportCommitDto, ImportPreviewDto, ImportPreviewRowDto, ImportRowDto, OptionKey, QuestionPaperDto } from '@/models/api/ExamApi';
 import { getApiErrorMessage } from '@/services/apiClient';
 import { examService } from '@/services/examService';
+import { PaperAuthoringWorkspace } from './PaperAuthoringWorkspace';
+import { QuestionBankWorkspace } from './QuestionBankWorkspace';
+import { academicGroups } from '@/constants/Academic';
+import { useAuth } from '@/store';
+import { exportImportReport } from '@/services/importReportService';
+import { buildImportErrorReport, importHeaders, serializeImportRows } from './csvImport.helpers';
 
 const csvSample =
   'book,chapter,question,optionA,optionB,optionC,optionD,correctOption,explanation,difficulty,subject,className,group\n' +
@@ -18,12 +24,15 @@ const csvSample =
 type ExamAdminSection = 'books' | 'chapters' | 'import' | 'question' | 'paper';
 
 export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { section?: ExamAdminSection; onBack?: () => void; onOpenSection?: (section: ExamAdminSection) => void }) {
+  const user = useAuth((state) => state.user);
+  const canManageExams = user?.role === 'ADMIN' || !!user?.permissions?.includes('EXAM_MANAGE');
+  const canManageQuestions = user?.role === 'ADMIN' || !!user?.permissions?.includes('QUESTION_MANAGE');
+  const [bookEligibleGroups, setBookEligibleGroups] = useState<string[]>([]);
   const [books, setBooks] = useState<ExamBookDto[]>([]);
   const [chapters, setChapters] = useState<ExamChapterDto[]>([]);
   const [questions, setQuestions] = useState<ExamQuestionDto[]>([]);
   const [papers, setPapers] = useState<QuestionPaperDto[]>([]);
   const [selectedBookId, setSelectedBookId] = useState('');
-  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [bookForm, setBookForm] = useState({ title: '', subject: '', className: '', group: '' });
   const [chapterTitle, setChapterTitle] = useState('');
   const [questionForm, setQuestionForm] = useState({
@@ -36,15 +45,6 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
     correctOption: 'A' as OptionKey,
     explanation: '',
   });
-  const [paperForm, setPaperForm] = useState({
-    title: '',
-    durationMinutes: '20',
-    totalMarks: '20',
-    passMark: '8',
-    availableFrom: '',
-    availableUntil: '',
-    status: 'draft',
-  });
   const [csvText, setCsvText] = useState(csvSample);
   const [csvFileName, setCsvFileName] = useState('Sample CSV');
   const [previewRows, setPreviewRows] = useState<ImportPreviewRowDto[]>([]);
@@ -52,21 +52,24 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
   const [previewMessage, setPreviewMessage] = useState('');
   const [importSummary, setImportSummary] = useState<ImportCommitDto | null>(null);
   const [showImportReceipt, setShowImportReceipt] = useState(false);
+  const [editingRow, setEditingRow] = useState<ImportPreviewRowDto | null>(null);
+  const [editForm, setEditForm] = useState<ImportRowDto | null>(null);
   const [importBusy, setImportBusy] = useState(false);
+  const importLock = useRef(false);
+  const [fileErrors, setFileErrors] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const selectedBook = books.find((book) => book.id === selectedBookId);
   const selectedBookChapters = useMemo(() => chapters.filter((chapter) => chapter.bookId === selectedBookId), [chapters, selectedBookId]);
-  const visibleQuestions = useMemo(() => questions.filter((question) => question.bookId === selectedBookId), [questions, selectedBookId]);
 
   const refreshBookData = useCallback(async (bookId: string) => {
     try {
       const [chapterResult, questionResult, paperResult] = await Promise.all([
         examService.listAdminChapters(bookId),
-        examService.listAdminQuestions(bookId),
-        examService.listAdminQuestionPapers(bookId),
+        canManageQuestions ? examService.listAdminQuestions(bookId) : Promise.resolve({ questions: [] as ExamQuestionDto[] }),
+        canManageExams ? examService.listAdminQuestionPapers(bookId) : Promise.resolve({ questionPapers: [] as QuestionPaperDto[] }),
       ]);
       setChapters((current) => [...current.filter((chapter) => chapter.bookId !== bookId), ...chapterResult.chapters]);
       setQuestions((current) => [...current.filter((question) => question.bookId !== bookId), ...questionResult.questions]);
@@ -75,13 +78,13 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
     } catch (loadError) {
       setError(getApiErrorMessage(loadError));
     }
-  }, []);
+  }, [canManageQuestions, canManageExams]);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [bookResult, paperResult] = await Promise.all([examService.listAdminBooks(), examService.listAdminQuestionPapers()]);
+      const [bookResult, paperResult] = await Promise.all([examService.listAdminBooks(), canManageExams ? examService.listAdminQuestionPapers() : Promise.resolve({ questionPapers: [] as QuestionPaperDto[] })]);
       setBooks(bookResult.books);
       setPapers(paperResult.questionPapers);
       if (!selectedBookId && bookResult.books[0]) setSelectedBookId(bookResult.books[0].id);
@@ -90,27 +93,29 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
     } finally {
       setLoading(false);
     }
-  }, [selectedBookId]);
+  }, [selectedBookId, canManageExams]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    refreshAll();
-  }, [refreshAll]);
+    if (section !== 'paper') refreshAll();
+  }, [refreshAll, section]);
 
   useEffect(() => {
-    if (selectedBookId) {
+    if (selectedBookId && section !== 'paper') {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshBookData(selectedBookId);
     }
-  }, [refreshBookData, selectedBookId]);
+  }, [refreshBookData, selectedBookId, section]);
 
   async function createBook() {
     setError(null);
+    if (!bookEligibleGroups.length || !bookForm.className.trim()) return setError('Select eligible book groups and enter class.');
     try {
-      const result = await examService.createBook({ ...bookForm, status: 'published' });
+      const result = await examService.createBook({ ...bookForm, group: bookEligibleGroups[0], eligibleGroups: bookEligibleGroups, status: 'published' });
       setBooks((current) => [result.book, ...current]);
       setSelectedBookId(result.book.id);
       setBookForm({ title: '', subject: '', className: '', group: '' });
+      setBookEligibleGroups([]);
       setMessage('Book created.');
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
@@ -154,7 +159,6 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
     try {
       await examService.deleteQuestion(question.id);
       setQuestions((current) => current.filter((item) => item.id !== question.id));
-      setSelectedQuestionIds((current) => current.filter((id) => id !== question.id));
       setPreviewRows((current) => current.filter((row) => row.existingQuestionId !== question.id));
       setValidRows((current) => current.filter((row) => row.question !== question.text));
       setMessage('Question deleted. You can preview/import the CSV again if needed.');
@@ -174,64 +178,128 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
     );
   }
 
-  async function deleteDuplicateQuestion(row: ImportPreviewRowDto) {
-    if (!row.existingQuestionId) return;
-    const question = questions.find((item) => item.id === row.existingQuestionId) || {
-      id: row.existingQuestionId,
-      bookId: selectedBookId,
-      chapterId: questionForm.chapterId,
-      text: row.data.question,
-      options: [],
-      difficulty: row.data.difficulty || 'medium',
-      status: 'active',
-    } as ExamQuestionDto;
-    await deleteQuestion(question);
-    setPreviewMessage('Duplicate question deleted. Preview the CSV again before importing.');
-  }
-
   async function previewCsv() {
+    if (importLock.current) return;
     if (!csvText.trim()) return setError('Select or paste a CSV file first.');
+    importLock.current = true;
     setError(null);
     setImportBusy(true);
     try {
       const result = await examService.previewImport(csvText);
-      setPreviewRows(result.rows);
-      setValidRows(result.validRows);
+      applyServerPreview(result);
       setImportSummary(null);
-      setPreviewMessage(buildPreviewMessage(result));
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
     } finally {
       setImportBusy(false);
+      importLock.current = false;
     }
   }
 
   async function commitCsv() {
+    if (importLock.current || fileErrors.length) return;
     if (!validRows.length) return setError('Preview CSV first and make sure at least one row is valid.');
     setError(null);
     setImportBusy(true);
+    importLock.current = true;
     try {
-      const result = await examService.commitImport(validRows);
+      const retainedRows = previewRows.filter((row) => row.errors.length);
+      const currentRows = previewRows.filter((row) => !row.errors.length);
+      const result = await examService.commitImport(currentRows.map((row) => row.data), currentRows.map((row) => row.rowNumber));
       setImportSummary(result);
-      setShowImportReceipt(true);
+      setShowImportReceipt(result.importedCount > 0);
       setMessage(result.summary || `${result.importedCount} questions imported.`);
       if (result.questions.length) {
         setQuestions((current) => [...result.questions, ...current.filter((question) => !result.questions.some((item) => item.id === question.id))]);
         setSelectedBookId(result.questions[0].bookId);
         setQuestionForm((current) => ({ ...current, chapterId: result.questions[0].chapterId }));
       }
-      setPreviewRows([]);
-      setValidRows([]);
+      if (retainedRows.length || result.invalidCount || result.skippedDuplicateCount || result.errors?.length) {
+        const remaining = [...retainedRows, ...result.rows.filter((row) => row.errors.length)].sort((a, b) => a.rowNumber - b.rowNumber);
+        applyServerPreview({ rows: remaining, validRows: [], validCount: 0, invalidCount: remaining.length, duplicateCount: remaining.filter((row) => row.duplicate).length, errors: result.errors });
+      } else clearPreview();
       await refreshAll();
       if (result.questions[0]?.bookId) await refreshBookData(result.questions[0].bookId);
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
     } finally {
       setImportBusy(false);
+      importLock.current = false;
+    }
+  }
+
+  function clearPreview() {
+    setPreviewRows([]);
+    setValidRows([]);
+    setFileErrors([]);
+    setPreviewMessage('');
+  }
+
+  function applyServerPreview(result: ImportPreviewDto) {
+    setPreviewRows(result.rows);
+    setFileErrors(result.errors || []);
+    setValidRows(result.errors?.length ? [] : result.rows.filter((row) => !row.errors.length).map((row) => row.data));
+    setPreviewMessage(buildPreviewMessage(result));
+  }
+
+  async function revalidateRows(rows: ImportPreviewRowDto[]) {
+    if (importLock.current || fileErrors.length) return false;
+    if (!rows.length) { clearPreview(); return true; }
+    importLock.current = true;
+    setImportBusy(true);
+    setValidRows([]);
+    setError(null);
+    try {
+      const result = await examService.previewImport(serializeImportRows(rows.map((row) => row.data)), rows.map((row) => row.rowNumber));
+      // A malformed-width record remains invalid until explicitly edited or removed.
+      result.rows = result.rows.map((row) => ({ ...row, errors: [...row.errors, ...(rows.find((source) => source.rowNumber === row.rowNumber)?.errors.filter((error) => error.startsWith('Expected 13 columns')) || [])] }));
+      result.validCount = result.rows.filter((row) => !row.errors.length).length;
+      result.invalidCount = result.rows.length - result.validCount;
+      applyServerPreview(result);
+      setImportSummary(null);
+      return true;
+    } catch (submitError) {
+      setError(getApiErrorMessage(submitError));
+      return false;
+    } finally {
+      setImportBusy(false);
+      importLock.current = false;
+    }
+  }
+
+  function removePreviewRow(rowNumber: number) {
+    void revalidateRows(previewRows.filter((row) => row.rowNumber !== rowNumber));
+  }
+
+  function removeDuplicatePreviewRows() {
+    void revalidateRows(previewRows.filter((row) => !row.duplicate));
+  }
+
+  function openEditRow(row: ImportPreviewRowDto) {
+    if (importLock.current || fileErrors.length) return;
+    setEditingRow(row);
+    setEditForm({ ...row.data });
+  }
+
+  async function saveEditedRow() {
+    if (!editingRow || !editForm) return;
+    const saved = await revalidateRows(previewRows.map((row) => row.rowNumber === editingRow.rowNumber ? { ...row, data: editForm, errors: [] } : row));
+    if (saved) { setEditingRow(null); setEditForm(null); }
+  }
+
+  async function shareImportErrorReport() {
+    if (!fileErrors.length && !previewRows.some((row) => row.errors.length)) return setMessage('No invalid rows to report.');
+    try {
+      await exportImportReport(buildImportErrorReport(previewRows, fileErrors));
+    } catch {
+      setError('Could not prepare the import error report.');
     }
   }
 
   async function pickCsvFile() {
+    if (importLock.current) return;
+    importLock.current = true;
+    setImportBusy(true);
     setError(null);
     setImportSummary(null);
     try {
@@ -244,6 +312,8 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
       const asset = result.assets[0];
       if (!asset) return;
       const content = asset.file ? await asset.file.text() : await fetch(asset.uri).then((response) => response.text());
+      if (content.length > 500000) return setError('CSV exceeds the 500000 character limit.');
+      clearPreview();
       setCsvFileName(asset.name || 'Selected CSV');
       setCsvText(content);
       setPreviewRows([]);
@@ -251,75 +321,10 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
       setPreviewMessage('CSV loaded. Preview it before importing.');
     } catch {
       setError('Could not read the selected CSV file. Try a plain UTF-8 .csv file.');
+    } finally {
+      importLock.current = false;
+      setImportBusy(false);
     }
-  }
-
-  function toggleQuestion(questionId: string) {
-    setSelectedQuestionIds((current) => (current.includes(questionId) ? current.filter((id) => id !== questionId) : [...current, questionId]));
-  }
-
-  async function createPaper() {
-    if (!selectedBookId || !selectedQuestionIds.length) return setError('Select a book and at least one question.');
-    if (Number(paperForm.passMark) > Number(paperForm.totalMarks)) return setError('Pass mark cannot be greater than total marks.');
-    setError(null);
-    try {
-      const result = await examService.createQuestionPaper({
-        title: paperForm.title,
-        bookId: selectedBookId,
-        chapterIds: [...new Set(visibleQuestions.filter((question) => selectedQuestionIds.includes(question.id)).map((question) => question.chapterId))],
-        durationMinutes: Number(paperForm.durationMinutes),
-        totalMarks: Number(paperForm.totalMarks),
-        questionIds: selectedQuestionIds,
-        availableFrom: paperForm.availableFrom || undefined,
-        availableUntil: paperForm.availableUntil || undefined,
-        passMark: Number(paperForm.passMark),
-        status: paperForm.status,
-      });
-      setPapers((current) => [result.questionPaper, ...current]);
-      setSelectedQuestionIds([]);
-      setPaperForm({ title: '', durationMinutes: '20', totalMarks: '20', passMark: '8', availableFrom: '', availableUntil: '', status: 'draft' });
-      setMessage('Question paper created.');
-    } catch (submitError) {
-      setError(getApiErrorMessage(submitError));
-    }
-  }
-
-  async function togglePaperStatus(paper: QuestionPaperDto) {
-    setError(null);
-    try {
-      const nextStatus = paper.status === 'published' ? 'draft' : 'published';
-      const result = await examService.setQuestionPaperStatus(paper.id, nextStatus);
-      setPapers((current) => current.map((item) => (item.id === paper.id ? result.questionPaper : item)));
-    } catch (submitError) {
-      setError(getApiErrorMessage(submitError));
-    }
-  }
-
-  async function deletePaper(paper: QuestionPaperDto) {
-    setError(null);
-    try {
-      const result = await examService.deleteQuestionPaper(paper.id);
-      setPapers((current) => current.filter((item) => item.id !== paper.id));
-      setMessage(
-        result.deletedMode === 'archived'
-          ? `Question paper removed from admin/member lists. ${result.attemptCount} attempt record kept safely.`
-          : 'Question paper deleted. Its questions remain reusable in Question Bank.'
-      );
-      if (selectedBookId) await refreshBookData(selectedBookId);
-    } catch (submitError) {
-      setError(getApiErrorMessage(submitError));
-    }
-  }
-
-  function confirmDeletePaper(paper: QuestionPaperDto) {
-    Alert.alert(
-      'Delete question paper?',
-      'This removes the paper from exam lists. The original questions will stay in Question Bank and can be used again.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deletePaper(paper) },
-      ]
-    );
   }
 
   return (
@@ -340,7 +345,7 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
         </View>
       )}
 
-      {section !== 'books' && (
+      {section !== 'books' && section !== 'paper' && (
         <WorkspaceSummary
           label="Current book"
           title={selectedBook?.title || 'No book selected'}
@@ -362,7 +367,8 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
             <AuthTextField label="Class" placeholder="HSC" value={bookForm.className} onChangeText={(className) => setBookForm((current) => ({ ...current, className }))} />
           </View>
           <View style={examStyles.flexField}>
-            <AuthTextField label="Group" placeholder="Science" value={bookForm.group} onChangeText={(group) => setBookForm((current) => ({ ...current, group }))} />
+<ThemedText type="smallBold">Eligible book groups</ThemedText>
+            {academicGroups.map((group) => <AuthButton key={group.value} label={(bookEligibleGroups.includes(group.value) ? '✓ ' : '') + group.label} variant="secondary" onPress={() => setBookEligibleGroups((current) => current.includes(group.value) ? current.filter((item) => item !== group.value) : [...current, group.value])} />)}
           </View>
         </View>
         <AuthButton label="Create book" onPress={createBook} />
@@ -382,7 +388,7 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
       {section === 'import' && <ThemedView style={examStyles.section}>
         <ThemedText type="smallBold">3. CSV import</ThemedText>
         <ThemedText type="caption" style={authStyles.mutedText}>
-          Select a CSV file or paste rows. Maximum 50 MCQs per import. correctOption must be A/B/C/D and difficulty must be easy/medium/hard.
+          Create the matching book and chapters first. Select a CSV file or paste rows. Maximum 50 MCQs per import. correctOption must be A/B/C/D and difficulty must be easy/medium/hard.
         </ThemedText>
         <View style={examStyles.importToolbar}>
           <View style={examStyles.importFileCopy}>
@@ -392,14 +398,14 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
           <AuthButton label="Select CSV" onPress={pickCsvFile} variant="secondary" />
         </View>
         <TextInput
+          editable={!importBusy}
           accessibilityLabel="CSV import text"
           multiline
           value={csvText}
           onChangeText={(text) => {
             setCsvText(text);
             setCsvFileName('Pasted CSV');
-            setPreviewRows([]);
-            setValidRows([]);
+            clearPreview();
             setImportSummary(null);
           }}
           placeholder="Paste CSV rows here"
@@ -418,9 +424,16 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
           </ThemedText>
         )}
         <View style={authStyles.row}>
-          <View style={examStyles.flexField}><AuthButton label={importBusy ? 'Checking...' : 'Preview CSV'} onPress={previewCsv} variant="secondary" /></View>
-          <View style={examStyles.flexField}><AuthButton label={importBusy ? 'Saving...' : 'Import valid rows'} onPress={commitCsv} /></View>
+          <View style={examStyles.flexField}><AuthButton label={importBusy ? 'Checking...' : 'Preview CSV'} disabled={importBusy} onPress={previewCsv} variant="secondary" /></View>
+          <View style={examStyles.flexField}><AuthButton label={importBusy ? 'Saving...' : 'Import valid rows'} disabled={importBusy || !!fileErrors.length || !validRows.length} onPress={commitCsv} /></View>
         </View>
+        {!!previewRows.length && (
+          <View style={authStyles.row}>
+            <View style={examStyles.flexField}><AuthButton label="Remove duplicate rows" disabled={importBusy || !!fileErrors.length} onPress={removeDuplicatePreviewRows} variant="secondary" /></View>
+            <View style={examStyles.flexField}><AuthButton label="Share error report" onPress={shareImportErrorReport} variant="secondary" /></View>
+            <View style={examStyles.flexField}><AuthButton label="Clear preview" onPress={() => { if (!importLock.current) clearPreview(); }} variant="secondary" /></View>
+          </View>
+        )}
         {importBusy && <ActivityIndicator />}
         <ImportSuccessModal
           visible={showImportReceipt}
@@ -432,7 +445,18 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
           }}
         />
         {!previewRows.length && <EmptyState title="Preview before import" body="Select a CSV file, preview validation, then import only clean rows into the question bank." />}
-        {!!previewRows.length && <ImportPreviewList rows={previewRows} onDeleteDuplicate={deleteDuplicateQuestion} />}
+        {!!previewRows.length && <ImportPreviewList rows={previewRows} disabled={importBusy || !!fileErrors.length} onEditRow={openEditRow} onRemoveRow={removePreviewRow} />}
+        <ImportRowEditModal
+          busy={importBusy}
+          row={editingRow}
+          form={editForm}
+          onChange={setEditForm}
+          onCancel={() => {
+            setEditingRow(null);
+            setEditForm(null);
+          }}
+          onSave={saveEditedRow}
+        />
       </ThemedView>}
 
       {section === 'question' && <ThemedView style={examStyles.section}>
@@ -450,99 +474,10 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
         />
         <AuthTextField label="Explanation" placeholder="Short explanation" value={questionForm.explanation} onChangeText={(explanation) => setQuestionForm((current) => ({ ...current, explanation }))} />
         <AuthButton label="Create question" onPress={createQuestion} />
-        <ThemedText type="smallBold">Questions in selected book</ThemedText>
-        <ScrollView style={examStyles.questionPicker} nestedScrollEnabled>
-          {!visibleQuestions.length && <EmptyState title="No questions found" body="Imported and manually created questions for this book will appear here." />}
-          {visibleQuestions.map((question) => (
-            <View key={question.id} style={authStyles.listCard}>
-              <View style={authStyles.listCardHeader}>
-                <View style={authStyles.listCardCopy}>
-                  <ThemedText type="smallBold">{question.text}</ThemedText>
-                  <ThemedText type="caption" style={authStyles.mutedText}>Correct: {question.correctOption} · {question.difficulty}</ThemedText>
-                </View>
-              </View>
-              <AuthButton label="Delete question" onPress={() => confirmDeleteQuestion(question)} variant="secondary" />
-            </View>
-          ))}
-        </ScrollView>
+        <QuestionBankWorkspace key={selectedBookId} bookId={selectedBookId} chapters={selectedBookChapters} version={questions} admin={user?.role === 'ADMIN'} onDelete={confirmDeleteQuestion} />
       </ThemedView>}
 
-      {section === 'paper' && <ThemedView style={examStyles.section}>
-        <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={setSelectedBookId} />
-        <ThemedText type="smallBold">5. Question paper builder</ThemedText>
-        <AuthTextField label="Paper title" placeholder="Vector chapter practice test" value={paperForm.title} onChangeText={(title) => setPaperForm((current) => ({ ...current, title }))} />
-        <View style={authStyles.row}>
-          <View style={examStyles.flexField}>
-            <AuthTextField label="Duration" placeholder="20" value={paperForm.durationMinutes} onChangeText={(durationMinutes) => setPaperForm((current) => ({ ...current, durationMinutes }))} keyboardType="numeric" />
-          </View>
-          <View style={examStyles.flexField}>
-            <AuthTextField label="Marks" placeholder="20" value={paperForm.totalMarks} onChangeText={(totalMarks) => setPaperForm((current) => ({ ...current, totalMarks }))} keyboardType="numeric" />
-          </View>
-          <View style={examStyles.flexField}>
-            <AuthTextField label="Pass mark" placeholder="8" value={paperForm.passMark} onChangeText={(passMark) => setPaperForm((current) => ({ ...current, passMark }))} keyboardType="numeric" />
-          </View>
-        </View>
-        <View style={authStyles.row}>
-          <View style={examStyles.flexField}>
-            <AuthTextField
-              label="Open from"
-              placeholder="2026-10-13T10:00:00+06:00"
-              value={paperForm.availableFrom}
-              onChangeText={(availableFrom) => setPaperForm((current) => ({ ...current, availableFrom }))}
-              helperText="Optional ISO date/time. Leave blank to open immediately."
-            />
-          </View>
-          <View style={examStyles.flexField}>
-            <AuthTextField
-              label="Open until"
-              placeholder="2026-10-13T12:00:00+06:00"
-              value={paperForm.availableUntil}
-              onChangeText={(availableUntil) => setPaperForm((current) => ({ ...current, availableUntil }))}
-              helperText="Optional ISO date/time. Students cannot start after this."
-            />
-          </View>
-        </View>
-        <ThemedText type="caption" style={authStyles.mutedText}>Select questions for this paper.</ThemedText>
-        <ScrollView style={examStyles.questionPicker} nestedScrollEnabled>
-          {!visibleQuestions.length && <EmptyState title="No questions ready" body="Import CSV rows or create manual questions before building a question paper." />}
-          {visibleQuestions.map((question) => {
-            const checked = selectedQuestionIds.includes(question.id);
-            return (
-              <Pressable key={question.id} onPress={() => toggleQuestion(question.id)} style={[authStyles.permissionItem, checked && authStyles.permissionItemSelected]}>
-                <View style={[authStyles.checkbox, checked && authStyles.checkboxSelected]}>
-                  <ThemedText style={authStyles.checkboxMark}>{checked ? '✓' : ''}</ThemedText>
-                </View>
-                <View style={authStyles.permissionLabel}>
-                  <ThemedText type="smallBold">{question.text}</ThemedText>
-                  <ThemedText type="caption" style={authStyles.mutedText}>Correct: {question.correctOption} · {question.difficulty}</ThemedText>
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-        <AuthButton label="Create question paper" onPress={createPaper} />
-        {papers.map((paper) => (
-          <View key={paper.id} style={authStyles.listCard}>
-            <View style={authStyles.listCardHeader}>
-              <View style={authStyles.listCardCopy}>
-                <ThemedText type="smallBold">{paper.title}</ThemedText>
-                <ThemedText type="caption" style={authStyles.mutedText}>
-                  {paper.questionCount} questions · {paper.durationMinutes} min · {paper.totalMarks} marks · pass {paper.passMark}
-                </ThemedText>
-              </View>
-              <View style={authStyles.workspacePill}>
-                <ThemedText type="caption" style={authStyles.workspacePillText}>{paper.status}</ThemedText>
-              </View>
-            </View>
-            <ThemedText type="caption" style={authStyles.mutedText}>
-              Window: {formatWindow(paper)}
-            </ThemedText>
-            <AuthButton label={paper.status === 'published' ? 'Unpublish' : 'Publish'} onPress={() => togglePaperStatus(paper)} variant="secondary" />
-            <AuthButton label="Delete paper" onPress={() => confirmDeletePaper(paper)} variant="secondary" />
-          </View>
-        ))}
-        {!papers.length && <EmptyState title="No question papers yet" body="Select questions, set duration/marks and publish when the exam window is ready." />}
-      </ThemedView>}
+      {section === 'paper' && <PaperAuthoringWorkspace />}
     </ThemedView>
   );
 }
@@ -562,12 +497,6 @@ const sectionHelp: Record<ExamAdminSection, string> = {
   question: 'Add one MCQ manually with correct answer and explanation.',
   paper: 'Select questions, schedule availability and publish the exam paper.',
 };
-
-function formatWindow(paper: QuestionPaperDto) {
-  const from = paper.availableFrom ? new Date(paper.availableFrom).toLocaleString() : 'Now';
-  const until = paper.availableUntil ? new Date(paper.availableUntil).toLocaleString() : 'No deadline';
-  return `${from} to ${until}`;
-}
 
 function buildPreviewMessage(result: ImportPreviewDto) {
   const base = `${result.validCount} valid, ${result.invalidCount} invalid, ${result.duplicateCount} duplicate.`;
@@ -600,7 +529,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-function ImportPreviewList({ rows, onDeleteDuplicate }: { rows: ImportPreviewRowDto[]; onDeleteDuplicate: (row: ImportPreviewRowDto) => void }) {
+function ImportPreviewList({ rows, disabled, onEditRow, onRemoveRow }: { rows: ImportPreviewRowDto[]; disabled: boolean; onEditRow: (row: ImportPreviewRowDto) => void; onRemoveRow: (rowNumber: number) => void }) {
   return (
     <View style={examStyles.previewList}>
       {rows.map((row) => {
@@ -624,13 +553,42 @@ function ImportPreviewList({ rows, onDeleteDuplicate }: { rows: ImportPreviewRow
               A {row.data.optionA || '-'} · B {row.data.optionB || '-'} · C {row.data.optionC || '-'} · D {row.data.optionD || '-'} · Correct {row.data.correctOption || '-'} · {row.data.difficulty || 'medium'}
             </ThemedText>
             {invalid && <ThemedText type="caption" style={authStyles.error}>{row.errors.join('\n')}</ThemedText>}
-            {row.existingQuestionId && (
-              <AuthButton label="Delete existing question" onPress={() => onDeleteDuplicate(row)} variant="secondary" />
-            )}
+            <AuthButton label="Edit row" disabled={disabled} onPress={() => onEditRow(row)} variant="secondary" />
+            <AuthButton label="Remove row from preview" disabled={disabled} onPress={() => onRemoveRow(row.rowNumber)} variant="secondary" />
           </View>
         );
       })}
     </View>
+  );
+}
+
+function ImportRowEditModal({ row, form, busy, onChange, onCancel, onSave }: {
+  row: ImportPreviewRowDto | null;
+  form: ImportRowDto | null;
+  busy: boolean;
+  onChange: (form: ImportRowDto) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  if (!row || !form) return null;
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={() => { if (!busy) onCancel(); }}>
+      <View style={examStyles.modalScrim}>
+        <View style={[examStyles.successDialog, { maxHeight: '90%' }]}>
+          <ThemedText type="sectionTitle">Edit CSV row {row.rowNumber}</ThemedText>
+          <ScrollView keyboardShouldPersistTaps="handled">
+            {importHeaders.map((field) => (
+              <AuthTextField key={field} label={field} placeholder={field} value={form[field] || ''} editable={!busy}
+                multiline={field === 'question' || field === 'explanation'}
+                onChangeText={(value) => onChange({ ...form, [field]: value })} />
+            ))}
+          </ScrollView>
+          <ThemedText type="caption">Save rechecks mapping, values and duplicates against the question bank.</ThemedText>
+          <AuthButton label={busy ? 'Checking...' : 'Save and revalidate'} disabled={busy} onPress={onSave} />
+          <AuthButton label="Cancel" disabled={busy} onPress={onCancel} variant="secondary" />
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -663,7 +621,7 @@ function ImportSuccessModal({
             <ScreenStat label="Invalid" value={String(summary.invalidCount)} />
           </View>
           <ThemedText style={authStyles.info}>
-            Students will see these only after you create and publish a Question Paper from the imported question IDs.
+            Review and approve the bank questions, then create, preview and publish a Question Paper for students.
           </ThemedText>
           <View style={authStyles.row}>
             <View style={examStyles.flexField}>

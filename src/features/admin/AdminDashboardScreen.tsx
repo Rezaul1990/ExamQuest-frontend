@@ -12,6 +12,9 @@ import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields
 import { ExamAdminPanel } from '@/features/exam/ExamAdminPanel';
 import { getApiErrorMessage } from '@/services/apiClient';
 import { adminService } from '@/services/adminService';
+import { examService } from '@/services/examService';
+import type { ExamBookDto } from '@/models/api/ExamApi';
+import type { AuthUser } from '@/models/domain/Auth';
 import { useAuth } from '@/store';
 
 type AdminSection = 'dashboard' | 'staff' | 'books' | 'chapters' | 'import' | 'question' | 'paper';
@@ -24,14 +27,31 @@ export function AdminDashboardScreen() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [bookIds, setBookIds] = useState<string[]>([]);
+  const [scopeBooks, setScopeBooks] = useState<ExamBookDto[]>([]);
+  const [staffUsers, setStaffUsers] = useState<AuthUser[]>([]);
   const [staffCount, setStaffCount] = useState<number | null>(null);
 
   useEffect(() => {
     adminService
       .listUsers()
-      .then((result) => setStaffCount(result.users.filter((user) => user.role === 'STAFF').length))
+      .then((result) => { const staff = result.users.filter((user) => user.role === 'STAFF'); setStaffCount(staff.length); setStaffUsers(staff); })
       .catch(() => setStaffCount(null));
   }, [message]);
+
+  useEffect(() => {
+    if (activeSection === 'staff') examService.listAdminBooks().then((result) => setScopeBooks(result.books.filter((book) => book.status !== 'archived'))).catch((cause) => setError(getApiErrorMessage(cause)));
+  }, [activeSection]);
+
+  async function applyScope(staff: AuthUser) {
+    setLoading(true); setError(null);
+    try {
+      const result = await adminService.updateStaffScope(staff.id, bookIds);
+      setStaffUsers((current) => current.map((user) => user.id === staff.id ? result.user : user));
+      setMessage('Book access updated for ' + staff.email + '. Staff must sign in again.');
+    } catch (cause) { setError(getApiErrorMessage(cause)); }
+    finally { setLoading(false); }
+  }
 
   function update(key: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -63,10 +83,12 @@ export function AdminDashboardScreen() {
         email: form.email.trim(),
         password: form.password,
         permissions: selected,
+        bookIds,
       });
       setMessage(`Staff created: ${result.user.email}`);
       setForm({ name: '', email: '', password: '' });
       setSelected(['CONTENT_READ']);
+      setBookIds([]);
     } catch (submitError) {
       setError(getApiErrorMessage(submitError));
     } finally {
@@ -129,6 +151,18 @@ export function AdminDashboardScreen() {
                   );
                 })}
               </View>
+              <ThemedText type="sectionTitle">Assigned books</ThemedText>
+              <ThemedText type="small">Select the books this staff member can read and manage. No selection means no content access. Permissions still apply.</ThemedText>
+              {!scopeBooks.length && <ThemedText>Create books first to assign access.</ThemedText>}
+              {scopeBooks.map((book) => <Pressable key={book.id} disabled={loading} accessibilityRole="checkbox" accessibilityState={{ checked: bookIds.includes(book.id) }} aria-checked={bookIds.includes(book.id)} onPress={() => setBookIds((current) => current.includes(book.id) ? current.filter((id) => id !== book.id) : [...current, book.id])} style={[authStyles.permissionItem, bookIds.includes(book.id) && authStyles.permissionItemSelected]}>
+                <ThemedText>{bookIds.includes(book.id) ? '✓ ' : ''}{book.className} · {book.subject} · {book.title}</ThemedText>
+              </Pressable>)}
+              {staffUsers.map((staff) => <View key={staff.id} style={authStyles.listCard}>
+                <ThemedText type="smallBold">{staff.name} · {staff.email}</ThemedText>
+                <ThemedText type="caption">Currently assigned: {(staff.bookIds || []).map((id) => scopeBooks.find((book) => book.id === id)?.title || id).join(', ') || 'No books'}</ThemedText>
+                <AuthButton label="Load this staff member's book selection" disabled={loading} onPress={() => setBookIds(staff.bookIds || [])} variant="secondary" />
+                <AuthButton label="Apply selected books to this staff member" disabled={loading} onPress={() => applyScope(staff)} variant="secondary" />
+              </View>)}
               {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
               {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
               {loading ? <ActivityIndicator /> : <AuthButton label="Create staff account" onPress={submit} disabled={loading} />}

@@ -21,8 +21,9 @@ export type RegisterMemberRequest = {
   password: string;
   confirmPassword: string;
   educationLevel: 'SSC' | 'HSC';
-  className?: string;
-  group?: string;
+  className: string;
+  group: 'Science' | 'Humanities' | 'BusinessStudies';
+  academicYear: number;
   parent: {
     name: string;
     phone: string;

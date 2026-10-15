@@ -8,9 +8,11 @@ export type AuthUser = {
   phone?: string;
   role: UserRole;
   permissions?: string[];
+  bookIds?: string[];
   educationLevel?: 'SSC' | 'HSC';
   className?: string;
-  group?: string;
+  group?: 'Science' | 'Humanities' | 'BusinessStudies';
+  academicYear?: number;
   parent?: {
     name: string;
     phone: string;

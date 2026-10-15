@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -6,124 +6,20 @@ import { ThemedView } from '@/components/themed-view';
 import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
 import { authStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, ScreenStat } from '@/features/auth/components/AuthFields';
-import type { ExamAttemptDto, ExamBookDto, ExamChapterDto, OptionKey, QuestionPaperDto } from '@/models/api/ExamApi';
-import { getApiErrorMessage } from '@/services/apiClient';
-import { examService } from '@/services/examService';
+import type { QuestionPaperDto } from '@/models/api/ExamApi';
+import { useMemberExam } from './hooks/useMemberExam';
+import { countdownLabel } from './memberExam.helpers';
 
 type MemberExamSection = 'exams' | 'history';
 
 export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: MemberExamSection; onBack?: () => void }) {
-  const [books, setBooks] = useState<ExamBookDto[]>([]);
-  const [chapters, setChapters] = useState<ExamChapterDto[]>([]);
-  const [papers, setPapers] = useState<QuestionPaperDto[]>([]);
-  const [attempts, setAttempts] = useState<ExamAttemptDto[]>([]);
-  const [selectedBookId, setSelectedBookId] = useState('');
-  const [selectedChapterId, setSelectedChapterId] = useState('');
-  const [activeAttempt, setActiveAttempt] = useState<ExamAttemptDto | null>(null);
-  const [activePaper, setActivePaper] = useState<QuestionPaperDto | null>(null);
-  const [answers, setAnswers] = useState<Record<string, OptionKey>>({});
-  const [result, setResult] = useState<ExamAttemptDto | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+  const { books, chapters, papers, attempts, selectedBookId, selectedChapterId, setSelectedBookId, setSelectedChapterId, activeAttempt, activePaper, answers, result, quota, loading, error, message, submitting, saving, saveMessage, secondsLeft, selectAnswer, startPaper, submitExam, leaveAttempt, resumeAttempt, refresh, flushSave } = useMemberExam();
   const selectedBook = books.find((book) => book.id === selectedBookId);
   const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId);
-  const answeredCount = useMemo(() => Object.keys(answers).length, [answers]);
-  const submittedPaperIds = useMemo(
-    () => new Set(attempts.filter((attempt) => attempt.status === 'submitted').map((attempt) => attempt.questionPaperId)),
-    [attempts]
-  );
-  const inProgressPaperIds = useMemo(
-    () => new Set(attempts.filter((attempt) => attempt.status === 'in_progress').map((attempt) => attempt.questionPaperId)),
-    [attempts]
-  );
-  const visiblePapers = useMemo(() => papers.filter((paper) => !submittedPaperIds.has(paper.id)), [papers, submittedPaperIds]);
-
-  const loadBook = useCallback(async (bookId: string, chapterId?: string) => {
-    try {
-      const [chapterResult, paperResult] = await Promise.all([examService.listChapters(bookId), examService.listQuestionPapers(bookId, chapterId || undefined)]);
-      setChapters(chapterResult.chapters);
-      setPapers(paperResult.questionPapers);
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError));
-    }
-  }, []);
-
-  const loadInitial = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [bookResult, attemptResult] = await Promise.all([examService.listBooks(), examService.listAttempts()]);
-      setBooks(bookResult.books);
-      setAttempts(attemptResult.attempts);
-      if (bookResult.books[0]) setSelectedBookId(bookResult.books[0].id);
-    } catch (loadError) {
-      setError(getApiErrorMessage(loadError));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadInitial();
-  }, [loadInitial]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (selectedBookId) loadBook(selectedBookId, selectedChapterId);
-  }, [loadBook, selectedBookId, selectedChapterId]);
-
-  async function startPaper(paper: QuestionPaperDto) {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const started = await examService.startExam(paper.id);
-      setActiveAttempt(started.attempt);
-      setActivePaper(started.paper);
-      const existingAnswers: Record<string, OptionKey> = {};
-      started.attempt.answers.forEach((answer) => {
-        if (answer.selectedOption) existingAnswers[answer.questionId] = answer.selectedOption;
-      });
-      setAnswers(existingAnswers);
-      setMessage(null);
-    } catch (startError) {
-      setError(getApiErrorMessage(startError));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function selectAnswer(questionId: string, selectedOption: OptionKey) {
-    setAnswers((current) => ({ ...current, [questionId]: selectedOption }));
-  }
-
-  async function submitExam() {
-    if (!activeAttempt) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const submitted = await examService.submitExam(
-        activeAttempt.id,
-        Object.entries(answers).map(([questionId, selectedOption]) => ({ questionId, selectedOption }))
-      );
-      setResult(submitted.attempt);
-      setActiveAttempt(null);
-      setActivePaper(null);
-      setAnswers({});
-      setMessage(`Submitted. Score ${submitted.attempt.score}/${submitted.attempt.total}.`);
-      const attemptResult = await examService.listAttempts();
-      setAttempts(attemptResult.attempts);
-      if (selectedBookId) await loadBook(selectedBookId, selectedChapterId);
-    } catch (submitError) {
-      setError(getApiErrorMessage(submitError));
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  const answeredCount = Object.keys(answers).length;
+  const submittedPaperIds = useMemo(() => new Set(attempts.filter((attempt) => attempt.status === 'submitted').map((attempt) => attempt.questionPaperId)), [attempts]);
+  const inProgressPaperIds = useMemo(() => new Set(attempts.filter((attempt) => attempt.status === 'in_progress').map((attempt) => attempt.questionPaperId)), [attempts]);
+  const visiblePapers = papers.filter((paper) => !submittedPaperIds.has(paper.id));
   if (activeAttempt && activePaper) {
     return (
       <ThemedView style={authStyles.panel}>
@@ -133,6 +29,9 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
             {answeredCount}/{activeAttempt.questions?.length || activePaper.questionCount} answered · {activePaper.durationMinutes} minutes
           </ThemedText>
         </ThemedView>
+        <ThemedText type="sectionTitle" accessibilityLiveRegion="polite">Time left: {countdownLabel(secondsLeft)}</ThemedText>
+        <ThemedText type="caption">{saveMessage}{saving ? ' Saving...' : ''}</ThemedText>
+        {secondsLeft === 0 && <ThemedText style={authStyles.info}>Time is over. Submission uses the answers saved before the server deadline. Retry below if the connection was interrupted.</ThemedText>}
         <View style={examStyles.progressTrack}>
           <View
             style={[
@@ -147,9 +46,9 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
             {question.options.map((option) => {
               const selected = answers[question.id] === option.key;
               return (
-                <Pressable key={option.key} onPress={() => selectAnswer(question.id, option.key)} style={[examStyles.optionRow, selected && examStyles.optionRowSelected]}>
+                <Pressable key={option.key} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled: submitting || secondsLeft === 0 }} aria-checked={selected} disabled={submitting || secondsLeft === 0} onPress={() => selectAnswer(question.id, option.key)} style={[examStyles.optionRow, selected && examStyles.optionRowSelected]}>
                   <View style={[authStyles.checkbox, selected && authStyles.checkboxSelected]}>
-                    <ThemedText style={authStyles.checkboxMark}>{selected ? '✓' : option.key}</ThemedText>
+                    <ThemedText style={authStyles.checkboxMark}>{selected ? '✓' : (option.label || option.key)}</ThemedText>
                   </View>
                   <ThemedText style={examStyles.optionText}>{option.text}</ThemedText>
                 </Pressable>
@@ -158,8 +57,11 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
           </View>
         ))}
         {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
-        {loading ? <ActivityIndicator /> : <AuthButton label="Submit exam" onPress={submitExam} />}
-        <AuthButton label="Back to papers" onPress={() => setActiveAttempt(null)} variant="secondary" />
+        {submitting && <ActivityIndicator />}
+        <AuthButton label={submitting ? 'Submitting...' : secondsLeft === 0 ? 'Retry expiry submission' : 'Submit exam'} disabled={submitting} onPress={() => submitExam(secondsLeft === 0 ? 'timer_expired' : 'manual')} />
+        {secondsLeft > 0 && <AuthButton label="Retry saving answers" disabled={submitting || saving} onPress={flushSave} variant="secondary" />}
+        <AuthButton label="Reload saved answers" disabled={submitting || saving} onPress={() => resumeAttempt(activeAttempt.id)} variant="secondary" />
+        <AuthButton label="Back to papers" disabled={submitting || saving} onPress={leaveAttempt} variant="secondary" />
       </ThemedView>
     );
   }
@@ -178,6 +80,10 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
         <ScreenStat label="Available papers" value={String(visiblePapers.length)} />
         <ScreenStat label="Attempts" value={String(attempts.length)} />
       </View>
+      <AuthButton label="Refresh exams and daily allowance" disabled={loading} onPress={refresh} variant="secondary" />
+      {quota && <ThemedText style={quota.canSubmit ? authStyles.info : authStyles.notice}>
+        {quota.dayKey} · Asia/Dhaka: {quota.used}/{quota.limit} successful submissions. {quota.canSubmit ? 'Starting and saving do not use this allowance.' : 'Today’s allowance is used. You can submit again after the next Dhaka midnight.'}
+      </ThemedText>}
       {loading && <ActivityIndicator />}
       {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
       {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
@@ -191,7 +97,7 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
           <ThemedText type="smallBold">Books</ThemedText>
           <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={(id) => { setSelectedBookId(id); setSelectedChapterId(''); }} />
           {!books.length && <EmptyState title="No books available" body="Published books will appear here when Admin or Staff prepares the exam library." />}
-          {!!selectedBook && <ThemedText type="caption" style={authStyles.mutedText}>{selectedBook.subject} · {selectedBook.className || 'Class open'} · {selectedBook.group || 'All groups'}</ThemedText>}
+          {!!selectedBook && <ThemedText type="caption" style={authStyles.mutedText}>{selectedBook.subject} · {selectedBook.className || 'Class open'} · {selectedBook.eligibleGroups?.join(', ') || selectedBook.group || 'Group'}</ThemedText>}
           <ThemedText type="smallBold">Chapters</ThemedText>
           <ChipRow
             items={[{ id: '', label: 'All chapters' }, ...chapters.map((chapter) => ({ id: chapter.id, label: chapter.title }))]}
@@ -215,7 +121,7 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
                 </View>
               </View>
               <ThemedText type="caption" style={authStyles.mutedText}>Open: {formatWindow(paper)}</ThemedText>
-              <AuthButton label={inProgress ? 'Continue exam' : 'Start exam'} onPress={() => startPaper(paper)} />
+              <AuthButton label={inProgress ? 'Continue exam' : 'Start exam'} disabled={loading || !quota?.canSubmit} onPress={() => startPaper(paper)} />
             </View>
             );
           })}
@@ -229,12 +135,13 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
               <View style={authStyles.listCardHeader}>
                 <View style={authStyles.listCardCopy}>
                   <ThemedText type="smallBold">{attempt.paperTitle || 'Question paper'}</ThemedText>
-                  <ThemedText type="caption" style={authStyles.mutedText}>{attempt.status} · {attempt.score}/{attempt.total}</ThemedText>
+                  <ThemedText type="caption" style={authStyles.mutedText}>{attempt.status === 'submitted' ? `${attempt.submissionMode === 'timer_expired' ? 'Timer submitted' : 'Submitted'} · ${attempt.score}/${attempt.total}` : attempt.status === 'expired' ? 'Closed without successful submission' : 'In progress — not submitted'}</ThemedText>
                 </View>
                 <View style={authStyles.workspacePill}>
-                  <ThemedText type="caption" style={authStyles.workspacePillText}>{attempt.percentage}%</ThemedText>
+                  <ThemedText type="caption" style={authStyles.workspacePillText}>{attempt.status === 'submitted' ? `${attempt.percentage}%` : '—'}</ThemedText>
                 </View>
               </View>
+              <AuthButton label={attempt.status === 'submitted' ? 'View result' : attempt.status === 'in_progress' ? 'Resume saved attempt' : 'View closed attempt'} disabled={loading} onPress={() => resumeAttempt(attempt.id)} variant="secondary" />
             </View>
           ))}
         </>

@@ -57,7 +57,37 @@ export function getApiErrorMessage(error: unknown) {
     if (error.code === 'QUESTION_IN_USE') {
       return 'This question is already used in a question paper. Delete that paper first, then delete/import this question.';
     }
-    return error.code || error.message;
+    if (error.code === 'MEMBER_PROFILE_INCOMPLETE') {
+      return 'Complete class, group and academic year before taking group-restricted exams.';
+    }
+    if (error.code === 'QUESTION_PAPER_NOT_ELIGIBLE') {
+      return 'This question paper is not available for your class or group.';
+    }
+    const authoringErrors: Record<string, string> = {
+      SUBMISSION_UNCONFIRMED: 'Submission could not be confirmed. Retry this same attempt; an accepted result will be returned without using another daily allowance.',
+      DAILY_SUBMISSION_LIMIT: 'You have already submitted an exam today (Asia/Dhaka). You can submit another tomorrow.',
+      ATTEMPT_EXPIRED: 'This attempt has expired. Check its result or start a fresh attempt when eligible.',
+      ATTEMPT_NOT_EXPIRED: 'The server timer is still running. Refresh this attempt to sync the countdown.',
+      ATTEMPT_CHANGED_RELOAD: 'Answers changed in another session. Reload the saved answers before continuing.',
+      INVALID_ATTEMPT_ANSWERS: 'Answers must belong to this attempt, with one choice per question.',
+      EXAM_STORAGE_NOT_READY: 'Exam submissions are temporarily unavailable. Your daily allowance has not been reserved. Try again shortly.',
+      MEMBER_ACCESS_REQUIRED: 'This exam area is available to member accounts only.',
+      LEGACY_PAPER_SNAPSHOT_REQUIRED: 'A referenced older paper has missing questions. Restore its bank references before changing or deleting this question.',
+      PAPER_TITLE_ALREADY_EXISTS: 'A paper with this title already exists for this book. Choose another title or archive the existing paper.',
+      RESOURCE_SCOPE_FORBIDDEN: 'This book or paper is outside your assigned access. Ask Admin to update your book access.',
+      PAPER_GROUP_MAPPING_INVALID: 'Select audience groups explicitly allowed by this book.',
+      BOOK_ACADEMIC_MAPPING_REQUIRED: 'The book needs a class and eligible groups before creating papers.',
+      QUESTION_APPROVAL_REQUIRED: 'Review and approve all selected bank questions before saving or publishing.',
+      QUESTION_CHAPTER_MISMATCH: 'Selected questions must belong to the chosen book and chapters.',
+      PAPER_REVIEW_REQUIRED: 'Save a draft, preview it, mark it reviewed and approve it before publishing.',
+      PAPER_CONTENT_CHANGED_REVIEW_REQUIRED: 'Content changed after review. Edit and save this draft, then review it again.',
+      PUBLISHED_PAPER_IMMUTABLE: 'Published papers keep their original content. Archive this paper and create a new draft.',
+      PAPER_CHANGED_RELOAD: 'This paper changed in another session. Reload and inspect the latest version.',
+      QUESTION_CHANGED_RELOAD: 'This question changed in another session. Reload before reviewing it.',
+      INVALID_REVIEW_TRANSITION: 'Complete the previous review step first.',
+      PAPER_ARCHIVED: 'This paper is archived. Create a new draft to use its category again.',
+    };
+    return (error.code && authoringErrors[error.code]) || error.code || error.message;
   }
   return 'Network or server error. Please check your connection and try again.';
 }

@@ -1,10 +1,11 @@
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Routes } from '@/constants/Routes';
+import { academicGroups, currentAcademicYear, type AcademicGroup } from '@/constants/Academic';
 import { authStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthHero, AuthTextField, FormStepHeader } from '@/features/auth/components/AuthFields';
 import { getApiErrorMessage } from '@/services/apiClient';
@@ -19,7 +20,8 @@ export function RegisterScreen() {
     confirmPassword: '',
     educationLevel: 'SSC' as 'SSC' | 'HSC',
     className: '',
-    group: '',
+    group: '' as AcademicGroup | '',
+    academicYear: currentAcademicYear(),
     parentName: '',
     parentPhone: '',
     parentEmail: '',
@@ -41,8 +43,8 @@ export function RegisterScreen() {
   }
 
   async function submit() {
-    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password) {
-      setError('Fill in student name, email, phone and password before registration.');
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim() || !form.password || !form.className.trim() || !form.group || !form.academicYear.trim()) {
+      setError('Fill in student info, class, group, academic year and password before registration.');
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -61,7 +63,8 @@ export function RegisterScreen() {
         confirmPassword: form.confirmPassword,
         educationLevel: form.educationLevel.trim().toUpperCase() as 'SSC' | 'HSC',
         className: form.className.trim(),
-        group: form.group.trim(),
+        group: form.group,
+        academicYear: Number(form.academicYear),
         parent: {
           name: form.parentName.trim(),
           phone: form.parentPhone.trim(),
@@ -99,8 +102,29 @@ export function RegisterScreen() {
             <AuthTextField label="Password" placeholder="Create password" value={form.password} onChangeText={(value) => update('password', value)} secureTextEntry showPasswordToggle textContentType="newPassword" autoComplete="new-password" helperText="Use a password the member can remember safely." />
             <AuthTextField label="Confirm password" placeholder="Confirm password" value={form.confirmPassword} onChangeText={(value) => update('confirmPassword', value)} secureTextEntry showPasswordToggle textContentType="newPassword" autoComplete="new-password" />
             <AuthTextField label="Education level" placeholder="SSC or HSC" value={form.educationLevel} onChangeText={(value) => update('educationLevel', value.toUpperCase())} />
-            <AuthTextField label="Class / Year" placeholder="Example: Class 10" value={form.className} onChangeText={(value) => update('className', value)} />
-            <AuthTextField label="Group" placeholder="Science, Business Studies or Humanities" value={form.group} onChangeText={(value) => update('group', value)} />
+            <AuthTextField label="Class / Year" placeholder="Example: HSC" value={form.className} onChangeText={(value) => update('className', value)} />
+            <AuthTextField label="Academic year" placeholder="Example: 2026" value={form.academicYear} onChangeText={(value) => update('academicYear', value.replace(/\D/g, '').slice(0, 4))} keyboardType="numeric" />
+            <ThemedText type="smallBold" style={authStyles.fieldLabel}>Group</ThemedText>
+            <View style={authStyles.permissionGrid}>
+              {academicGroups.map((group) => {
+                const selected = form.group === group.value;
+                return (
+                  <Pressable
+                    key={group.value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    onPress={() => update('group', group.value)}
+                    style={[authStyles.permissionItem, selected && authStyles.permissionItemSelected]}>
+                    <View style={[authStyles.checkbox, selected && authStyles.checkboxSelected]}>
+                      <ThemedText style={authStyles.checkboxMark}>{selected ? '✓' : ''}</ThemedText>
+                    </View>
+                    <View style={authStyles.permissionLabel}>
+                      <ThemedText type="smallBold">{group.label}</ThemedText>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </ThemedView>
           <ThemedView style={authStyles.panel}>
             <FormStepHeader number="2" title="Parent / Guardian" body="Used for student support and account records." />
