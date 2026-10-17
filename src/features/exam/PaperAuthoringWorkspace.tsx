@@ -9,28 +9,43 @@ import type { AcademicGroup, QuestionPaperDto } from '@/models/api/ExamApi';
 import { usePaperAuthoring } from './hooks/usePaperAuthoring';
 import { useAuth } from '@/store';
 import { QuestionBankWorkspace } from './QuestionBankWorkspace';
-import { paperDraftBlocker } from './paperAuthoring.helpers';
+import { paperDraftBlocker, type ImportedPaperSource } from './paperAuthoring.helpers';
 
-export function PaperAuthoringWorkspace() {
-  const vm = usePaperAuthoring();
+export function PaperAuthoringWorkspace({ source }: { source?: ImportedPaperSource }) {
+  const vm = usePaperAuthoring(source);
   const [archiveTarget, setArchiveTarget] = useState<QuestionPaperDto | null>(null);
   const [reviewBank, setReviewBank] = useState(false);
   const [bankBusy, setBankBusy] = useState(false);
+  const [showSelection, setShowSelection] = useState(false);
   const user = useAuth((state) => state.user);
   const canReviewQuestions = user?.role === 'ADMIN' || !!user?.permissions?.includes('QUESTION_MANAGE');
-  const saveBlocker = paperDraftBlocker(vm.selection, vm.form.title, vm.visibleQuestions.length);
+  const saveBlocker = paperDraftBlocker(vm.selection, vm.form.title, vm.visibleQuestions.length, vm.isAdmin);
   async function closeBank() { if (bankBusy) return; setReviewBank(false); await vm.refresh(); }
   const blocked = vm.busy || vm.loading;
+  const compactImport = vm.isAdmin && !!source && !!vm.selection.bookId;
   return <View style={styles.stack}>
-    <ThemedText type="sectionTitle">Create a question paper</ThemedText>
-    <ThemedText type="small">Choose the audience, select approved questions, preview, review and publish.</ThemedText>
-    <ThemedText type="caption">Saving a draft does not make an exam available to members. After saving, mark the paper reviewed, approve it and publish. Only eligible members see published, currently open papers.</ThemedText>
+    <ThemedText type="small">{vm.isAdmin ? 'Imported questions can be used immediately. Check audience, questions and settings, then create the exam for members.' : 'Choose the audience, select approved questions, preview, review and publish.'}</ThemedText>
+    <ThemedText type="caption">{vm.isAdmin ? 'Create and publish exam makes your selection available to eligible students immediately, or at your optional opening time. Save draft is optional.' : 'Draft papers need review and approval before publication.'} Students can take published exams and view their own results.</ThemedText>
     <AuthButton label="Reload workspace" disabled={blocked} onPress={vm.refresh} variant="secondary" />
     {vm.loading && <ActivityIndicator accessibilityLabel="Loading paper workspace" />}
     {vm.error && <ThemedText style={authStyles.error}>{vm.error}</ThemedText>}
     {!!vm.message && <ThemedText style={authStyles.info}>{vm.message}</ThemedText>}
+    {vm.publishedPaper && <View style={authStyles.listCard}>
+      <ThemedText type="sectionTitle" accessibilityRole="alert" accessibilityLiveRegion="polite">Exam published successfully</ThemedText>
+      <ThemedText>{vm.publishedPaper.title}</ThemedText>
+      <ThemedText type="small">{vm.publishedPaper.availabilityStatus === 'scheduled' ? 'Students can take this exam from its scheduled opening time.' : 'Eligible students can access this exam during its availability window.'}</ThemedText>
+      <AuthButton label="Preview published exam" disabled={blocked} onPress={() => vm.openPreview(vm.publishedPaper!)} variant="secondary" />
+      <AuthButton label="Create another exam" disabled={blocked} onPress={vm.reset} />
+    </View>}
     {!vm.loading && !vm.books.length && <ThemedText>No books are available. Admin must create books or assign book access to staff.</ThemedText>}
-    <View pointerEvents={blocked ? 'none' : 'auto'} style={styles.stack}>
+    {!vm.publishedPaper && <View pointerEvents={blocked ? 'none' : 'auto'} style={styles.stack}>
+      {compactImport && <View style={authStyles.listCard}>
+        <ThemedText type="smallBold">{vm.books.find((book) => book.id === vm.selection.bookId)?.title}</ThemedText>
+        <ThemedText>{vm.selection.className} · {vm.selection.groups.join(', ')} · {vm.selection.questionIds.length} questions selected</ThemedText>
+        <ThemedText type="caption">{vm.chapters.filter((chapter) => vm.selection.chapterIds.includes(chapter.id)).map((chapter) => chapter.title).join(', ')}</ThemedText>
+        <AuthButton label={showSelection ? 'Hide audience / question options' : 'Change audience / questions (optional)'} onPress={() => setShowSelection(!showSelection)} variant="secondary" />
+      </View>}
+      {(!compactImport || showSelection) && <View style={styles.stack}>
       <ThemedText type="smallBold">1. Class</ThemedText>
       <Choices values={vm.classNames} selected={[vm.selection.className]} onChoose={(value) => vm.changeFilter('className', value)} />
       <ThemedText type="smallBold">2. Eligible audience groups (required)</ThemedText>
@@ -43,28 +58,38 @@ export function PaperAuthoringWorkspace() {
       <Choices values={vm.chapters.map((chapter) => chapter.id)} selected={vm.selection.chapterIds} label={(value) => vm.chapters.find((chapter) => chapter.id === value)?.title || value} onChoose={vm.toggleChapter} />
       <ThemedText type="smallBold">6. Question selection</ThemedText>
       <Choices values={['', 'easy', 'medium', 'hard']} selected={[vm.difficulty]} label={(value) => value || 'Any difficulty'} onChoose={vm.changeDifficulty} />
+      {!!vm.selection.chapterIds.length && vm.allAvailability && <View style={authStyles.listCard}>
+        <ThemedText type="smallBold">Selected chapters: {vm.allAvailability.total} active questions</ThemedText>
+        <ThemedText>{vm.isAdmin ? `${vm.allAvailability.total} ready for Admin selection — no separate approval required` : `${vm.allAvailability.approved} approved · ${vm.allAvailability.pendingReview} awaiting review`}</ThemedText>
+        {vm.matchingAvailability && <ThemedText type="caption">{vm.difficulty || 'Any difficulty'}: {vm.isAdmin ? vm.matchingAvailability.total : vm.matchingAvailability.approved} available questions</ThemedText>}
+        {!vm.isAdmin && vm.allAvailability.pendingReview > 0 && canReviewQuestions && <AuthButton label="Review / approve questions to enable building" onPress={() => setReviewBank(true)} variant="secondary" />}
+      </View>}
       <AuthTextField label="Automatic question count" placeholder="20" keyboardType="number-pad" value={vm.count} onChangeText={vm.setCount} />
+      {!!vm.selection.chapterIds.length && !!vm.generationBlocker && <ThemedText style={authStyles.notice}>{vm.generationBlocker}</ThemedText>}
       <AuthButton label={vm.preferFresh ? 'Prefer fresh / less-used: On' : 'Prefer fresh / less-used: Off'} onPress={() => vm.setPreferFresh(!vm.preferFresh)} variant="secondary" />
-      <AuthButton label="Generate selection" disabled={!vm.selection.chapterIds.length} onPress={vm.generate} variant="secondary" />
-      <ThemedText type="caption">Manual selection: {vm.selection.questionIds.length} selected. Only active approved questions appear.</ThemedText>
+      <AuthButton label="Generate selection" disabled={!vm.selection.chapterIds.length || !!vm.generationBlocker} onPress={vm.generate} variant="secondary" />
+      {vm.selectableCount > 0 && vm.selectableCount <= 200 && vm.questions.filter((question) => vm.selection.chapterIds.includes(question.chapterId)).length === vm.selectableCount && <AuthButton label={`Use all ${vm.selectableCount} questions (Any difficulty)`} onPress={vm.selectAllQuestions} variant="secondary" />}
+      <ThemedText type="caption">Selection: {vm.selection.questionIds.length} questions. {vm.isAdmin ? 'Active imported questions are ready to use.' : 'Only active approved questions appear.'}</ThemedText>
       {!!vm.selection.bookId && <>
-        <ThemedText type="caption">Imported questions start as draft. Check each question, correct answer and explanation before marking it reviewed and approving it.</ThemedText>
-        {canReviewQuestions ? <AuthButton label="Review question bank for this book" onPress={() => setReviewBank(true)} variant="secondary" /> : <ThemedText type="caption">Ask Admin or Staff with question-management permission to approve bank questions.</ThemedText>}
+        {!vm.isAdmin && <ThemedText type="caption">Imported questions start as draft. Check each question, correct answer and explanation before marking it reviewed and approving it.</ThemedText>}
+        {canReviewQuestions ? <AuthButton label={vm.isAdmin ? 'Inspect / edit question bank (optional)' : 'Review question bank for this book'} onPress={() => setReviewBank(true)} variant="secondary" /> : !vm.isAdmin && <ThemedText type="caption">Ask Admin or Staff with question-management permission to approve bank questions.</ThemedText>}
       </>}
       <ScrollView nestedScrollEnabled style={styles.questions}>
-        {!vm.visibleQuestions.length && <ThemedText>No approved questions match these chapters and difficulty. Review the question bank or change filters.</ThemedText>}
+        {!vm.visibleQuestions.length && <ThemedText>{vm.isAdmin ? 'No active questions match these chapters and difficulty. Choose Any difficulty or import questions.' : 'No approved questions match these chapters and difficulty. Review the question bank or change filters.'}</ThemedText>}
         {vm.visibleQuestions.map((question) => <Pressable key={question.id} accessibilityRole="checkbox" accessibilityState={{ checked: vm.selection.questionIds.includes(question.id) }} aria-checked={vm.selection.questionIds.includes(question.id)} onPress={() => vm.toggleQuestion(question.id)} style={[styles.choice, vm.selection.questionIds.includes(question.id) && styles.selected]}>
           <ThemedText type="smallBold">{vm.selection.questionIds.includes(question.id) ? '✓ ' : ''}{question.text}</ThemedText>
           <ThemedText type="caption">{question.difficulty}</ThemedText>
         </Pressable>)}
       </ScrollView>
-      <ThemedText type="smallBold">7. Settings {vm.editing ? '(editing saved draft)' : '(new draft)'}</ThemedText>
+      </View>}
+      <ThemedText type="smallBold">{vm.isAdmin ? 'Exam settings' : '7. Settings'} {vm.editing ? '(editing saved draft)' : ''}</ThemedText>
       {(['title', 'durationMinutes', 'totalMarks', 'passMark', 'availableFrom', 'availableUntil'] as const).map((field) => <AuthTextField key={field} label={{ title: 'Paper title', durationMinutes: 'Duration (minutes)', totalMarks: 'Total marks', passMark: 'Pass mark', availableFrom: 'Open from (optional ISO date/time)', availableUntil: 'Open until (optional ISO date/time)' }[field]} placeholder={field.startsWith('available') ? '2026-10-15T10:00:00+06:00' : field} value={vm.form[field]} onChangeText={(value) => vm.changeForm(field, value)} keyboardType={['durationMinutes','totalMarks','passMark'].includes(field) ? 'number-pad' : 'default'} />)}
       <ThemedText type="caption">Each member can submit this paper once. Future availability opens automatically at the saved time. Publication freezes its questions and answer key.</ThemedText>
       {!!saveBlocker && <ThemedText accessibilityLiveRegion="polite" style={authStyles.notice}>{saveBlocker}</ThemedText>}
-      <AuthButton label={vm.busy ? 'Working...' : vm.editing ? 'Save draft changes and preview' : 'Save draft and preview'} onPress={vm.save} disabled={blocked || !!saveBlocker} />
+      {vm.isAdmin && <AuthButton label={vm.busy ? 'Working...' : vm.editing ? 'Save and publish exam' : 'Create and publish exam'} onPress={() => vm.save(true)} disabled={blocked || !!saveBlocker} />}
+      <AuthButton label={vm.busy ? 'Working...' : vm.editing ? 'Save draft changes and preview' : 'Save draft and preview'} onPress={() => vm.save()} disabled={blocked || !!saveBlocker} variant={vm.isAdmin ? 'secondary' : 'primary'} />
       <AuthButton label="Start a new draft" onPress={vm.reset} variant="secondary" />
-    </View>
+    </View>}
     <ThemedText type="sectionTitle">Saved papers</ThemedText>
     {!vm.papers.length && !vm.loading && <ThemedText>No papers yet. Save a draft after selecting questions.</ThemedText>}
     {vm.papers.map((paper) => <View key={paper.id} style={authStyles.listCard}>
@@ -88,7 +113,8 @@ export function PaperAuthoringWorkspace() {
     <Modal visible={!!vm.preview} transparent animationType="slide" onRequestClose={() => { if (!vm.busy) vm.closePreview(); }}>
       <View style={styles.scrim}><View style={styles.dialog}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.stack}>
-          <ThemedText type="sectionTitle">Student perspective preview</ThemedText>
+          <ThemedText type="sectionTitle">{vm.publishedPaper?.id === vm.preview?.questionPaper.id && vm.publishedPaper ? 'Exam published successfully' : 'Student perspective preview'}</ThemedText>
+          {!!vm.message && <ThemedText accessibilityRole="alert" accessibilityLiveRegion="polite" style={authStyles.info}>{vm.message}</ThemedText>}
           {vm.preview && <>
             <ThemedText type="smallBold">{vm.preview.questionPaper.title}</ThemedText>
             <ThemedText>Audience: {vm.preview.questionPaper.className} · {vm.preview.questionPaper.eligibleGroups.join(', ')} · {vm.preview.questionPaper.subject}</ThemedText>
@@ -100,11 +126,13 @@ export function PaperAuthoringWorkspace() {
               <ThemedText type="caption">{Number(question.marks.toFixed(4))} marks</ThemedText>
               {question.options.map((option) => <ThemedText key={option.key}>{option.key}. {option.text}</ThemedText>)}
             </View>)}
-            <ThemedText type="caption">Review: {vm.preview.questionPaper.reviewStatus}. Check accuracy before approving. Answer keys are omitted from this preview.</ThemedText>
+            <ThemedText type="caption">{vm.isAdmin ? `Status: ${vm.preview.questionPaper.status}.` : `Review: ${vm.preview.questionPaper.reviewStatus}.`} Answer keys are omitted from this preview.</ThemedText>
             {vm.preview.questionPaper.status === 'draft' && <>
-              {vm.preview.questionPaper.reviewStatus === 'draft' && <AuthButton label="Mark reviewed" disabled={vm.busy} onPress={() => vm.review('reviewed')} />}
-              {vm.preview.questionPaper.reviewStatus === 'reviewed' && <AuthButton label="Approve paper" disabled={vm.busy} onPress={() => vm.review('approved')} />}
-              {vm.preview.questionPaper.reviewStatus === 'approved' && <AuthButton label="Publish this approved paper" disabled={vm.busy} onPress={vm.publish} />}
+              {vm.isAdmin ? <AuthButton label="Publish exam" disabled={vm.busy} onPress={vm.publish} /> : <>
+                {vm.preview.questionPaper.reviewStatus === 'draft' && <AuthButton label="Mark reviewed" disabled={vm.busy} onPress={() => vm.review('reviewed')} />}
+                {vm.preview.questionPaper.reviewStatus === 'reviewed' && <AuthButton label="Approve paper" disabled={vm.busy} onPress={() => vm.review('approved')} />}
+                {vm.preview.questionPaper.reviewStatus === 'approved' && <AuthButton label="Publish this approved paper" disabled={vm.busy} onPress={vm.publish} />}
+              </>}
             </>}
           </>}
           {vm.error && <ThemedText style={authStyles.error}>{vm.error}</ThemedText>}

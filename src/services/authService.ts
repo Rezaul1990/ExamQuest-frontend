@@ -58,6 +58,11 @@ export const authService = {
   logout() {
     return apiRequest('/auth/logout', { method: 'POST' });
   },
+  changePassword(currentPassword: string, newPassword: string) {
+    return apiRequest<{ message: string }>('/auth/change-password', {
+      method: 'POST', body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
   logoutAll() {
     return apiRequest('/auth/logout-all', { method: 'POST' });
   },

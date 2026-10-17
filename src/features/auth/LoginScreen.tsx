@@ -11,7 +11,7 @@ import { getApiErrorMessage } from '@/services/apiClient';
 import { useAuth } from '@/store';
 
 export function LoginScreen() {
-  const { login } = useAuth();
+  const { login, sessionNotice } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,6 +47,7 @@ export function LoginScreen() {
             />
           </ThemedView>
           <ThemedView style={authStyles.panel}>
+            {sessionNotice && <ThemedText accessibilityRole="alert" style={sessionNotice.tone === 'warning' ? authStyles.notice : authStyles.info}>{sessionNotice.message}</ThemedText>}
             <ThemedView style={authStyles.panelHeader}>
               <ThemedText type="sectionTitle">Account details</ThemedText>
               <ThemedText type="small" style={authStyles.mutedText}>Use the same email you registered with.</ThemedText>

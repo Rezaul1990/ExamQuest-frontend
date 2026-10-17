@@ -106,6 +106,7 @@ export type ImportCommitDto = {
 
 export type StudentQuestionDto = Omit<ExamQuestionDto, 'chapterId' | 'status' | 'correctOption' | 'explanation' | 'options'> & { options: { key: OptionKey; label?: string; text: string }[] };
 export type BankFilters = { chapterId?: string; q?: string; difficulty?: string; status?: string; reviewStatus?: string; page?: string; limit?: string };
+export type PaperCandidateAvailabilityDto = { chapterId: string; difficulty: string; total: number; approved: number; pendingReview: number };
 export type QuestionAnalyticsDto = { questionId: string; difficulty: Difficulty; paperCount: number; submissions: number; answered: number; correct: number; correctnessPercent: number | null };
 export type ExamAttemptDto = {
   id: string;

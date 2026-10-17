@@ -16,17 +16,20 @@ import { academicGroups } from '@/constants/Academic';
 import { useAuth } from '@/store';
 import { exportImportReport } from '@/services/importReportService';
 import { buildImportErrorReport, importHeaders, serializeImportRows } from './csvImport.helpers';
+import { importedPaperSource } from './paperAuthoring.helpers';
+import { usePaperSource } from './PaperSourceContext';
 
 const csvSample =
   'book,chapter,question,optionA,optionB,optionC,optionD,correctOption,explanation,difficulty,subject,className,group\n' +
   'Physics 1st Paper,Vector,Vector quantity which one?,Force,Mass,Time,Temperature,A,Force has magnitude and direction,easy,Physics,HSC,Science';
 
 type ExamAdminSection = 'books' | 'chapters' | 'import' | 'question' | 'paper';
+const sectionPermission: Record<ExamAdminSection, string> = { books: 'CONTENT_READ', chapters: 'CONTENT_MANAGE', import: 'QUESTION_MANAGE', question: 'QUESTION_MANAGE', paper: 'EXAM_MANAGE' };
 
 export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { section?: ExamAdminSection; onBack?: () => void; onOpenSection?: (section: ExamAdminSection) => void }) {
   const user = useAuth((state) => state.user);
-  const canManageExams = user?.role === 'ADMIN' || !!user?.permissions?.includes('EXAM_MANAGE');
-  const canManageQuestions = user?.role === 'ADMIN' || !!user?.permissions?.includes('QUESTION_MANAGE');
+  const canManageExams = user?.role === 'ADMIN' || (user?.role === 'STAFF' && !!user.permissions?.includes('EXAM_MANAGE'));
+  const canManageQuestions = user?.role === 'ADMIN' || (user?.role === 'STAFF' && !!user.permissions?.includes('QUESTION_MANAGE'));
   const [bookEligibleGroups, setBookEligibleGroups] = useState<string[]>([]);
   const [books, setBooks] = useState<ExamBookDto[]>([]);
   const [chapters, setChapters] = useState<ExamChapterDto[]>([]);
@@ -52,6 +55,7 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
   const [previewMessage, setPreviewMessage] = useState('');
   const [importSummary, setImportSummary] = useState<ImportCommitDto | null>(null);
   const [showImportReceipt, setShowImportReceipt] = useState(false);
+  const { source: paperSource, setSource: setPaperSource } = usePaperSource();
   const [editingRow, setEditingRow] = useState<ImportPreviewRowDto | null>(null);
   const [editForm, setEditForm] = useState<ImportRowDto | null>(null);
   const [importBusy, setImportBusy] = useState(false);
@@ -327,11 +331,16 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
     }
   }
 
+  if (user?.role !== 'ADMIN' && !(user?.role === 'STAFF' && user.permissions?.includes(sectionPermission[section]))) {
+    return <ThemedView style={authStyles.panel}>
+      <ThemedText>Only Admin and Staff with the assigned permission can open this workspace.</ThemedText>
+      {onBack && <AuthButton label="Back to dashboard" onPress={onBack} variant="secondary" />}
+    </ThemedView>;
+  }
   return (
     <ThemedView style={authStyles.panel}>
       {onBack && <AuthButton label="Back to dashboard" onPress={onBack} variant="secondary" />}
       <ThemedView style={authStyles.panelHeader}>
-        <ThemedText type="sectionTitle">{sectionTitle[section]}</ThemedText>
         <ThemedText type="small" style={authStyles.mutedText}>
           {sectionHelp[section]}
         </ThemedText>
@@ -359,7 +368,7 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
       {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
 
       {section === 'books' && <ThemedView style={examStyles.section}>
-        <ThemedText type="smallBold">1. Books</ThemedText>
+        {user?.role === 'ADMIN' && <View style={{ gap: Spacing.three }}>
         <AuthTextField label="Book title" placeholder="Physics 1st Paper" value={bookForm.title} onChangeText={(title) => setBookForm((current) => ({ ...current, title }))} />
         <AuthTextField label="Subject" placeholder="Physics" value={bookForm.subject} onChangeText={(subject) => setBookForm((current) => ({ ...current, subject }))} />
         <View style={authStyles.row}>
@@ -372,6 +381,7 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
           </View>
         </View>
         <AuthButton label="Create book" onPress={createBook} />
+        </View>}
         <ChipRow items={books.map((book) => ({ id: book.id, label: book.title }))} selectedId={selectedBookId} onSelect={setSelectedBookId} />
         {!books.length && <EmptyState title="No books yet" body="Create the first book so chapters, questions and papers can be organized properly." />}
       </ThemedView>}
@@ -386,7 +396,6 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
       </ThemedView>}
 
       {section === 'import' && <ThemedView style={examStyles.section}>
-        <ThemedText type="smallBold">3. CSV import</ThemedText>
         <ThemedText type="caption" style={authStyles.mutedText}>
           Create the matching book and chapters first. Select a CSV file or paste rows. Maximum 50 MCQs per import. correctOption must be A/B/C/D and difficulty must be easy/medium/hard.
         </ThemedText>
@@ -436,10 +445,12 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
         )}
         {importBusy && <ActivityIndicator />}
         <ImportSuccessModal
+          admin={user?.role === 'ADMIN'}
           visible={showImportReceipt}
           summary={importSummary}
           onClose={() => setShowImportReceipt(false)}
           onBuildPaper={() => {
+            setPaperSource(importedPaperSource(importSummary?.questions || [], selectedBookId));
             setShowImportReceipt(false);
             onOpenSection?.('paper');
           }}
@@ -477,18 +488,10 @@ export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { s
         <QuestionBankWorkspace key={selectedBookId} bookId={selectedBookId} chapters={selectedBookChapters} version={questions} admin={user?.role === 'ADMIN'} onDelete={confirmDeleteQuestion} />
       </ThemedView>}
 
-      {section === 'paper' && <PaperAuthoringWorkspace />}
+      {section === 'paper' && <PaperAuthoringWorkspace source={paperSource} />}
     </ThemedView>
   );
 }
-
-const sectionTitle: Record<ExamAdminSection, string> = {
-  books: 'Create book',
-  chapters: 'Create chapter',
-  import: 'CSV question import',
-  question: 'Create question',
-  paper: 'Question paper builder',
-};
 
 const sectionHelp: Record<ExamAdminSection, string> = {
   books: 'Create the book/subject container first.',
@@ -593,6 +596,7 @@ function ImportRowEditModal({ row, form, busy, onChange, onCancel, onSave }: {
 }
 
 function ImportSuccessModal({
+  admin,
   visible,
   summary,
   onClose,
@@ -602,6 +606,7 @@ function ImportSuccessModal({
   summary: ImportCommitDto | null;
   onClose: () => void;
   onBuildPaper: () => void;
+  admin: boolean;
 }) {
   if (!summary) return null;
   return (
@@ -621,7 +626,7 @@ function ImportSuccessModal({
             <ScreenStat label="Invalid" value={String(summary.invalidCount)} />
           </View>
           <ThemedText style={authStyles.info}>
-            Review and approve the bank questions, then create, preview and publish a Question Paper for students.
+            {admin ? 'Build paper opens these imported questions already selected. Check title, time and marks, then Create and publish exam. No separate approval is required.' : 'Review and approve the bank questions, then create, preview and publish a Question Paper for students.'}
           </ThemedText>
           <View style={authStyles.row}>
             <View style={examStyles.flexField}>

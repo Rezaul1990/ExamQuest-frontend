@@ -1,45 +1,26 @@
-import { Link } from 'expo-router';
-import { useState } from 'react';
+import { Link, router } from 'expo-router';
+import { workspaceHref } from '@/features/navigation/navigation';
 import { ScrollView, View } from 'react-native';
 
-import { AppHeaderBar } from '@/components/AppHeaderBar';
 import { DashboardActionCard } from '@/components/DashboardActionCard';
 import { DashboardWorkflowPanel } from '@/components/DashboardWorkflowPanel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Routes } from '@/constants/Routes';
 import { authStyles } from '@/features/auth/Auth.styles';
-import { AuthButton } from '@/features/auth/components/AuthFields';
-import { ExamAdminPanel } from '@/features/exam/ExamAdminPanel';
-import { MemberExamWorkspace } from '@/features/exam/MemberExamWorkspace';
 import { useAuth } from '@/store';
 
 type StaffSection = 'dashboard' | 'books' | 'chapters' | 'import' | 'question' | 'paper';
 type MemberSection = 'dashboard' | 'exams' | 'history';
 
 export function RoleHomeScreen() {
-  const { user, logout } = useAuth();
-  const [staffSection, setStaffSection] = useState<StaffSection>('dashboard');
-  const [memberSection, setMemberSection] = useState<MemberSection>('dashboard');
+  const { user } = useAuth();
   const isStaff = user?.role === 'STAFF';
-  const activeTitle = isStaff
-    ? staffSection === 'dashboard' ? 'Staff Workspace' : staffSectionTitles[staffSection]
-    : memberSection === 'dashboard' ? 'Student Workspace' : memberSectionTitles[memberSection];
 
   return (
     <ThemedView style={authStyles.screenShell}>
       <ScrollView contentContainerStyle={authStyles.scrollContent}>
         <ThemedView style={authStyles.content}>
-          <ThemedView style={authStyles.headerBand}>
-            <AppHeaderBar
-              kicker={isStaff ? 'Operations' : 'Learning'}
-              title={activeTitle}
-              subtitle={`${user?.name || 'ExamQuest user'} · ${user?.role || 'Member'} · ${user?.accountStatus || 'Active'}`}
-              variant={(isStaff ? staffSection : memberSection) === 'dashboard' ? 'dashboard' : 'inner'}
-              canGoBack={(isStaff ? staffSection : memberSection) !== 'dashboard'}
-              onBack={() => (isStaff ? setStaffSection('dashboard') : setMemberSection('dashboard'))}
-            />
-          </ThemedView>
           <ThemedView style={authStyles.panel}>
             <ThemedView style={authStyles.panelHeader}>
               <ThemedText type="sectionTitle">Access summary</ThemedText>
@@ -52,7 +33,7 @@ export function RoleHomeScreen() {
             <ThemedText>
               {user?.role === 'STAFF'
                 ? `Permissions: ${(user.permissions || []).join(', ') || 'None assigned'}`
-                : 'Study, question paper and exam areas will appear here as modules are added.'}
+                : 'Choose an available exam or review your submitted results.'}
             </ThemedText>
             {user?.role === 'MEMBER' && (
               <ThemedText style={authStyles.info}>Member registration no longer requires email verification.</ThemedText>
@@ -61,36 +42,12 @@ export function RoleHomeScreen() {
               <ThemedText type="linkPrimary">Open profile</ThemedText>
             </Link>
           </ThemedView>
-          {isStaff ? (
-            staffSection === 'dashboard' ? <StaffQuickLinks userPermissions={user?.permissions || []} onOpen={setStaffSection} /> : <ExamAdminPanel section={staffSection} onBack={() => setStaffSection('dashboard')} onOpenSection={setStaffSection} />
-          ) : (
-            memberSection === 'dashboard' ? <MemberQuickLinks onOpen={setMemberSection} /> : <MemberExamWorkspace section={memberSection} onBack={() => setMemberSection('dashboard')} />
-          )}
+          {isStaff ? <StaffQuickLinks userPermissions={user?.permissions || []} onOpen={(next) => router.navigate(workspaceHref(next))} /> : <MemberQuickLinks onOpen={(next) => router.navigate(next === 'history' ? '/results' : '/exams')} />}
         </ThemedView>
       </ScrollView>
-      <ThemedView style={authStyles.fixedFooter}>
-        <ThemedView style={authStyles.footerInner}>
-          <AuthButton label="Back to login" onPress={logout} variant="secondary" />
-        </ThemedView>
-      </ThemedView>
     </ThemedView>
   );
 }
-
-const staffSectionTitles: Record<StaffSection, string> = {
-  dashboard: 'Staff Workspace',
-  books: 'Books',
-  chapters: 'Chapters',
-  import: 'CSV Import',
-  question: 'Create Question',
-  paper: 'Question Papers',
-};
-
-const memberSectionTitles: Record<MemberSection, string> = {
-  dashboard: 'Student Workspace',
-  exams: 'Available Exams',
-  history: 'Result History',
-};
 
 function StaffQuickLinks({ userPermissions, onOpen }: { userPermissions: string[]; onOpen: (section: StaffSection) => void }) {
   return (
@@ -112,11 +69,11 @@ function StaffQuickLinks({ userPermissions, onOpen }: { userPermissions: string[
         ]}
       />
       <View style={authStyles.dashboardGrid}>
-        <DashboardActionCard title="Books" meta="Create and review books" eyebrow="Library" accent="01" tone="green" onPress={() => onOpen('books')} />
-        <DashboardActionCard title="Chapters" meta="Book-wise chapter setup" eyebrow="Structure" accent="02" tone="blue" onPress={() => onOpen('chapters')} />
-        <DashboardActionCard title="CSV import" meta="Bulk question upload" eyebrow="Question bank" accent="Bulk" tone="amber" primary onPress={() => onOpen('import')} />
-        <DashboardActionCard title="Questions" meta="Manual MCQ entry" eyebrow="Question bank" accent="MCQ" tone="blue" onPress={() => onOpen('question')} />
-        <DashboardActionCard title="Question papers" meta="Publish timed exams" eyebrow="Exam" accent="Live" tone="green" primary onPress={() => onOpen('paper')} />
+        {userPermissions.includes('CONTENT_READ') && <DashboardActionCard title="Books" meta="Assigned book library" eyebrow="Library" accent="01" tone="green" onPress={() => onOpen('books')} />}
+        {userPermissions.includes('CONTENT_MANAGE') && <DashboardActionCard title="Chapters" meta="Book-wise chapter setup" eyebrow="Structure" accent="02" tone="blue" onPress={() => onOpen('chapters')} />}
+        {userPermissions.includes('QUESTION_MANAGE') && <DashboardActionCard title="CSV import" meta="Bulk question upload" eyebrow="Question bank" accent="Bulk" tone="amber" primary onPress={() => onOpen('import')} />}
+        {userPermissions.includes('QUESTION_MANAGE') && <DashboardActionCard title="Questions" meta="Manual MCQ entry" eyebrow="Question bank" accent="MCQ" tone="blue" onPress={() => onOpen('question')} />}
+        {userPermissions.includes('EXAM_MANAGE') && <DashboardActionCard title="Question papers" meta="Publish timed exams" eyebrow="Exam" accent="Live" tone="green" primary onPress={() => onOpen('paper')} />}
       </View>
     </ThemedView>
   );

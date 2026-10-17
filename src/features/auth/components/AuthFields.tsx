@@ -62,7 +62,6 @@ export function AuthTextField({ label, helperText, errorText, showPasswordToggle
 
 export function AuthHero({
   kicker,
-  title,
   body,
   badges = [],
   preview = 'exam',
@@ -86,7 +85,6 @@ export function AuthHero({
           <ThemedText type="caption" style={authStyles.headerKicker}>
             {kicker}
           </ThemedText>
-          <ThemedText type="subtitle">{title}</ThemedText>
         </View>
       </View>
       <ThemedText type="small" style={authStyles.headerBody}>

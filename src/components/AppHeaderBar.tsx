@@ -1,160 +1,40 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { ThemedText } from '@/components/themed-text';
-import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
-
-type AppHeaderBarProps = {
-  title: string;
-  subtitle?: string;
-  kicker?: string;
-  variant?: 'dashboard' | 'inner' | 'route';
-  canGoBack?: boolean;
-  onBack?: () => void;
-  menuLabel?: string;
-};
-
-export function AppHeaderBar({
-  title,
-  subtitle,
-  kicker,
-  variant = 'route',
-  canGoBack,
-  onBack,
-  menuLabel = 'Open menu',
-}: AppHeaderBarProps) {
-  const isInner = variant === 'inner' || (variant === 'route' && canGoBack);
-  const insets = useSafeAreaInsets();
-  const topInset = variant === 'route' ? insets.top : 0;
-
-  return (
-    <View
-      style={[
-        styles.header,
-        variant === 'route' && { paddingTop: topInset + Spacing.two, minHeight: 58 + topInset },
-        variant === 'dashboard' && styles.dashboardHeader,
-        isInner && styles.innerHeader,
-      ]}>
-      <View style={styles.leftCluster}>
-        {isInner && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} style={styles.backButton}>
-            <ThemedText style={styles.backIcon}>‹</ThemedText>
-          </Pressable>
-        )}
-        {!isInner && (
-          <View style={styles.brandMark}>
-            <ThemedText style={styles.brandMarkText}>EQ</ThemedText>
-          </View>
-        )}
-        <View style={styles.titleBlock}>
-          {!!kicker && <ThemedText type="caption" style={styles.kicker}>{kicker}</ThemedText>}
-          <ThemedText type="smallBold" style={[styles.title, variant === 'dashboard' && styles.dashboardTitle]} numberOfLines={1}>
-            {title}
-          </ThemedText>
-          {!!subtitle && <ThemedText type="caption" style={styles.subtitle} numberOfLines={1}>{subtitle}</ThemedText>}
-        </View>
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={menuLabel} style={styles.menuButton}>
-        <View style={styles.menuDot} />
-        <View style={styles.menuDot} />
-        <View style={styles.menuDot} />
-      </Pressable>
+import { ExamQuestColors, Spacing } from '@/constants/theme';
+import { useAuth } from '@/store';
+type Props = { title: string; canGoBack?: boolean; onBack?: () => void; onProfile?: () => void; hideMenu?: boolean };
+export function AppHeaderBar({ title, canGoBack, onBack, onProfile, hideMenu }: Props) {
+ const insets = useSafeAreaInsets();
+ const { user, logout } = useAuth();
+ const [menuOpen, setMenuOpen] = useState(false);
+ return <View style={{ backgroundColor: ExamQuestColors.surface, paddingTop: insets.top }}>
+  <View style={styles.header}>
+   {canGoBack ? <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} style={styles.action}><SymbolView name={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} size={22} tintColor={ExamQuestColors.textPrimary} /></Pressable> : <View style={styles.brand}><ThemedText style={styles.brandText}>EQ</ThemedText></View>}
+   <ThemedText accessibilityRole="header" type="smallBold" style={styles.title} numberOfLines={1}>{title}</ThemedText>
+   {user && !hideMenu ? <Pressable accessibilityRole="button" accessibilityLabel="Open account menu" accessibilityState={{ expanded: menuOpen }} onPress={() => setMenuOpen(true)} style={styles.action}><SymbolView name={{ ios: 'ellipsis', android: 'more_vert', web: 'more_vert' }} size={24} tintColor={ExamQuestColors.textPrimary} /></Pressable> : <View style={styles.action} />}
+  </View>
+  <Modal visible={!!user && menuOpen && !hideMenu} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+   <Pressable accessibilityRole="button" accessibilityLabel="Close account menu" style={styles.scrim} onPress={() => setMenuOpen(false)}>
+    <View accessibilityViewIsModal style={[styles.menu, { marginTop: insets.top + 56 }]}>
+     <ThemedText type="smallBold">{user?.name}</ThemedText>
+     <ThemedText type="caption">{user?.role}</ThemedText>
+     {onProfile && <Pressable accessibilityRole="button" accessibilityLabel="Open profile" style={styles.menuItem} onPress={() => { setMenuOpen(false); onProfile(); }}><ThemedText>Profile</ThemedText></Pressable>}
+     <Pressable accessibilityRole="button" accessibilityLabel="Logout" style={styles.menuItem} onPress={() => { setMenuOpen(false); void logout().catch(() => {}); }}><ThemedText style={{ color: ExamQuestColors.error }}>Logout</ThemedText></Pressable>
     </View>
-  );
+   </Pressable>
+  </Modal>
+ </View>;
 }
-
 const styles = StyleSheet.create({
-  header: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderBottomLeftRadius: Radius.sm,
-    borderBottomRightRadius: Radius.sm,
-    backgroundColor: '#135083',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  dashboardHeader: {
-    minHeight: 76,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: '#2B6B9E',
-    paddingVertical: Spacing.twoHalf,
-  },
-  innerHeader: {
-    minHeight: 52,
-    borderBottomLeftRadius: Radius.sm,
-    borderBottomRightRadius: Radius.sm,
-    paddingVertical: Spacing.one,
-  },
-  leftCluster: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  backButton: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: {
-    marginTop: -2,
-    color: ExamQuestColors.onBrandPrimary,
-    fontSize: 34,
-    fontWeight: '700',
-  },
-  brandMark: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: Radius.sm,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  brandMarkText: {
-    color: ExamQuestColors.onBrandPrimary,
-    fontWeight: '900',
-  },
-  titleBlock: {
-    flex: 1,
-    minWidth: 0,
-    gap: 1,
-  },
-  kicker: {
-    color: '#B8D7EF',
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: ExamQuestColors.onBrandPrimary,
-  },
-  dashboardTitle: {
-    fontSize: 17,
-  },
-  subtitle: {
-    color: '#D7E8F7',
-  },
-  menuButton: {
-    width: 32,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-  },
-  menuDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: ExamQuestColors.onBrandPrimary,
-  },
+ header: { height: 56, paddingHorizontal: Spacing.three, flexDirection: 'row', alignItems: 'center', gap: Spacing.two, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: ExamQuestColors.border },
+ title: { flex: 1, color: ExamQuestColors.textPrimary },
+ action: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+ brand: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: ExamQuestColors.brandPrimary },
+ brandText: { color: ExamQuestColors.onBrandPrimary, fontWeight: '800' },
+ scrim: { flex: 1, backgroundColor: 'rgba(15,23,42,0.25)', alignItems: 'flex-end' },
+ menu: { marginRight: Spacing.three, width: 220, padding: Spacing.three, gap: Spacing.one, backgroundColor: ExamQuestColors.surface, borderRadius: 8, borderWidth: 1, borderColor: ExamQuestColors.border },
+ menuItem: { minHeight: 48, justifyContent: 'center', paddingHorizontal: Spacing.two },
 });

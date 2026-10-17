@@ -9,11 +9,14 @@ import { AuthButton, ScreenStat } from '@/features/auth/components/AuthFields';
 import type { QuestionPaperDto } from '@/models/api/ExamApi';
 import { useMemberExam } from './hooks/useMemberExam';
 import { countdownLabel } from './memberExam.helpers';
+import { useExamNavigationGuard } from '@/features/navigation/useExamNavigationGuard';
+import { ExamExitDialog } from '@/features/navigation/ExamExitDialog';
 
 type MemberExamSection = 'exams' | 'history';
 
 export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: MemberExamSection; onBack?: () => void }) {
   const { books, chapters, papers, attempts, selectedBookId, selectedChapterId, setSelectedBookId, setSelectedChapterId, activeAttempt, activePaper, answers, result, quota, loading, error, message, submitting, saving, saveMessage, secondsLeft, selectAnswer, startPaper, submitExam, leaveAttempt, resumeAttempt, refresh, flushSave } = useMemberExam();
+  const exitGuard = useExamNavigationGuard(!!activeAttempt && !!activePaper, leaveAttempt);
   const selectedBook = books.find((book) => book.id === selectedBookId);
   const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId);
   const answeredCount = Object.keys(answers).length;
@@ -61,7 +64,8 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
         <AuthButton label={submitting ? 'Submitting...' : secondsLeft === 0 ? 'Retry expiry submission' : 'Submit exam'} disabled={submitting} onPress={() => submitExam(secondsLeft === 0 ? 'timer_expired' : 'manual')} />
         {secondsLeft > 0 && <AuthButton label="Retry saving answers" disabled={submitting || saving} onPress={flushSave} variant="secondary" />}
         <AuthButton label="Reload saved answers" disabled={submitting || saving} onPress={() => resumeAttempt(activeAttempt.id)} variant="secondary" />
-        <AuthButton label="Back to papers" disabled={submitting || saving} onPress={leaveAttempt} variant="secondary" />
+        <AuthButton label="Back to papers" disabled={submitting || saving} onPress={exitGuard.requestLeave} variant="secondary" />
+        <ExamExitDialog mode={exitGuard.dialog} busy={exitGuard.leaving} onDismiss={exitGuard.dismiss} onConfirm={exitGuard.confirm} />
       </ThemedView>
     );
   }
@@ -70,7 +74,6 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
     <ThemedView style={authStyles.panel}>
       {onBack && <AuthButton label="Back to dashboard" onPress={onBack} variant="secondary" />}
       <ThemedView style={authStyles.panelHeader}>
-        <ThemedText type="sectionTitle">{section === 'exams' ? 'Available exams' : 'Result history'}</ThemedText>
         <ThemedText type="small" style={authStyles.mutedText}>
           {section === 'exams' ? 'Select a book and chapter, start an open question paper, then submit answers for backend scoring.' : 'Review submitted attempts and latest scores.'}
         </ThemedText>

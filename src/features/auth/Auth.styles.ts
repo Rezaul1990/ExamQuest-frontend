@@ -19,7 +19,7 @@ export const authStyles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
-    paddingBottom: 136,
+    paddingBottom: Spacing.four,
     backgroundColor: ExamQuestColors.background,
   },
   content: {

@@ -1,52 +1,31 @@
-import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
+import { DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar, useColorScheme } from 'react-native';
-
+import { ActivityIndicator, StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppHeaderBar } from '@/components/AppHeaderBar';
-import { AuthProvider } from '@/store';
-
+import { AuthProvider, useAuth } from '@/store';
+import { ExamQuestColors } from '@/constants/theme';
 SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <StatusBar barStyle="light-content" backgroundColor="#135083" translucent={false} />
-        <AnimatedSplashOverlay />
-        <Stack
-          screenOptions={{
-            headerShown: true,
-            header: ({ options, navigation, back }) => (
-              <AppHeaderBar
-                title={typeof options.title === 'string' ? options.title : 'ExamQuest'}
-                variant="route"
-                canGoBack={!!back}
-                onBack={() => navigation.goBack()}
-              />
-            ),
-            headerStyle: { backgroundColor: '#135083' },
-            headerShadowVisible: false,
-            headerTintColor: '#FFFFFF',
-            headerTitleStyle: { color: '#FFFFFF', fontWeight: '700' },
-            headerBackTitle: 'Back',
-            animation: 'slide_from_right',
-            animationDuration: 260,
-            animationTypeForReplace: 'push',
-            gestureEnabled: true,
-            fullScreenGestureEnabled: true,
-          }}>
-          <Stack.Screen name="index" options={{ animation: 'fade', title: 'ExamQuest', headerBackVisible: false }} />
-          <Stack.Screen name="login" options={{ animation: 'fade', title: 'Login' }} />
-          <Stack.Screen name="register" options={{ animation: 'slide_from_right', title: 'Member Registration' }} />
-          <Stack.Screen name="profile" options={{ animation: 'slide_from_right', title: 'Profile' }} />
-          <Stack.Screen name="forgot-password" options={{ animation: 'slide_from_bottom', title: 'Forgot Password' }} />
-          <Stack.Screen name="reset-password" options={{ animation: 'slide_from_bottom', title: 'Reset Password' }} />
-          <Stack.Screen name="verify-email" options={{ animation: 'slide_from_bottom', title: 'Verify Email' }} />
-          <Stack.Screen name="staff-invite" options={{ animation: 'slide_from_bottom', title: 'Staff Invite' }} />
-        </Stack>
-      </AuthProvider>
-    </ThemeProvider>
-  );
+export default function RootLayout() {
+ return <SafeAreaProvider><ThemeProvider value={DefaultTheme}><AuthProvider>
+  <StatusBar barStyle="dark-content" backgroundColor={ExamQuestColors.surface} translucent={false} />
+  <AnimatedSplashOverlay /><RootNavigator />
+ </AuthProvider></ThemeProvider></SafeAreaProvider>;
+}
+function RootNavigator() {
+ const { user, restoring } = useAuth();
+ if (restoring) return <ActivityIndicator style={{ flex: 1 }} accessibilityLabel="Restoring session" />;
+ return <Stack screenOptions={{ header: ({ options, navigation, back }) => <AppHeaderBar title={options.title || 'ExamQuest'} canGoBack={!!back} onBack={() => navigation.goBack()} />, animation: 'slide_from_right', contentStyle: { backgroundColor: ExamQuestColors.background } }}>
+  <Stack.Protected guard={!!user}><Stack.Screen name="(app)" options={{ headerShown: false }} /></Stack.Protected>
+  <Stack.Protected guard={!user}>
+   <Stack.Screen name="login" options={{ title: 'Login', animation: 'fade' }} />
+   <Stack.Screen name="register" options={{ title: 'Member Registration' }} />
+   <Stack.Screen name="forgot-password" options={{ title: 'Forgot Password' }} />
+   <Stack.Screen name="reset-password" options={{ title: 'Reset Password' }} />
+   <Stack.Screen name="verify-email" options={{ title: 'Verify Email' }} />
+   <Stack.Screen name="staff-invite" options={{ title: 'Staff Invite' }} />
+  </Stack.Protected>
+  <Stack.Screen name="explore" options={{ title: 'Explore' }} />
+ </Stack>;
 }

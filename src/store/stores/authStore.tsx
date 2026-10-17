@@ -11,6 +11,8 @@ type AuthState = {
   restoring: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  sessionNotice: { message: string; tone: 'success' | 'warning' } | null;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
@@ -23,6 +25,13 @@ export const useAuth = create<AuthState>((set) => ({
   restoring: true,
   error: null,
   isAuthenticated: false,
+  sessionNotice: null,
+  async changePassword(currentPassword, newPassword) {
+    await authService.changePassword(currentPassword, newPassword);
+    setAccessToken(null);
+    try { await clearRefreshToken(); }
+    finally { set({ user: null, isAuthenticated: false, error: null, sessionNotice: { message: 'Password updated. Sign in with your new password. All previous sessions have been signed out.', tone: 'success' } }); }
+  },
   setUser(user) {
     set({ user, isAuthenticated: Boolean(user) });
   },
@@ -37,7 +46,7 @@ export const useAuth = create<AuthState>((set) => ({
       const session = await authService.refresh(refreshToken);
       setAccessToken(session.accessToken);
       await saveRefreshToken(session.refreshToken);
-      set({ user: session.user, isAuthenticated: true });
+      set({ user: session.user, isAuthenticated: true, sessionNotice: null });
     } catch {
       setAccessToken(null);
       await clearRefreshToken();
@@ -52,28 +61,32 @@ export const useAuth = create<AuthState>((set) => ({
       const session = await authService.login(email, password);
       setAccessToken(session.accessToken);
       await saveRefreshToken(session.refreshToken);
-      set({ user: session.user, isAuthenticated: true });
+      set({ user: session.user, isAuthenticated: true, sessionNotice: null });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Login failed' });
       throw error;
     }
   },
   async logout() {
+    let confirmed = false;
     try {
       await authService.logout();
+      confirmed = true;
     } finally {
       setAccessToken(null);
-      await clearRefreshToken();
-      set({ user: null, isAuthenticated: false, error: null });
+      try { await clearRefreshToken(); }
+      finally { set({ user: null, isAuthenticated: false, error: null, sessionNotice: confirmed ? null : { message: 'Signed out on this device. The server could not confirm session revocation.', tone: 'warning' } }); }
     }
   },
   async logoutAll() {
+    let confirmed = false;
     try {
       await authService.logoutAll();
+      confirmed = true;
     } finally {
       setAccessToken(null);
-      await clearRefreshToken();
-      set({ user: null, isAuthenticated: false, error: null });
+      try { await clearRefreshToken(); }
+      finally { set({ user: null, isAuthenticated: false, error: null, sessionNotice: confirmed ? { message: 'Signed out on all devices. Sign in to continue.', tone: 'success' } : { message: 'Signed out on this device. Other devices could not be signed out. Sign in and try again.', tone: 'warning' } }); }
     }
   },
 }));

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 
-import { AppHeaderBar } from '@/components/AppHeaderBar';
+import { router } from 'expo-router';
+import { workspaceHref } from '@/features/navigation/navigation';
 import { DashboardActionCard } from '@/components/DashboardActionCard';
 import { DashboardWorkflowPanel } from '@/components/DashboardWorkflowPanel';
 import { ThemedText } from '@/components/themed-text';
@@ -15,13 +16,12 @@ import { adminService } from '@/services/adminService';
 import { examService } from '@/services/examService';
 import type { ExamBookDto } from '@/models/api/ExamApi';
 import type { AuthUser } from '@/models/domain/Auth';
-import { useAuth } from '@/store';
 
 type AdminSection = 'dashboard' | 'staff' | 'books' | 'chapters' | 'import' | 'question' | 'paper';
 
-export function AdminDashboardScreen() {
-  const { logout } = useAuth();
-  const [activeSection, setActiveSection] = useState<AdminSection>('dashboard');
+export function AdminDashboardScreen({ section = 'dashboard' }: { section?: AdminSection }) {
+  const activeSection = section;
+  const setActiveSection = (next: AdminSection) => router.navigate(workspaceHref(next));
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [selected, setSelected] = useState<string[]>(['CONTENT_READ']);
   const [loading, setLoading] = useState(false);
@@ -100,22 +100,10 @@ export function AdminDashboardScreen() {
     <ThemedView style={authStyles.screenShell}>
       <ScrollView contentContainerStyle={authStyles.scrollContent} keyboardShouldPersistTaps="handled">
         <ThemedView style={authStyles.content}>
-          <ThemedView style={authStyles.headerBand}>
-            <AppHeaderBar
-              kicker={activeSection === 'dashboard' ? 'Admin workspace' : 'ExamQuest admin'}
-              title={activeSection === 'dashboard' ? 'Admin Control' : sectionTitles[activeSection]}
-              subtitle={activeSection === 'dashboard' ? `${staffCount === null ? '...' : staffCount} active staff · ${selected.length} permissions selected` : 'Focused workspace'}
-              variant={activeSection === 'dashboard' ? 'dashboard' : 'inner'}
-              canGoBack={activeSection !== 'dashboard'}
-              onBack={() => setActiveSection('dashboard')}
-            />
-          </ThemedView>
-
           {activeSection === 'dashboard' ? (
             <AdminQuickLinks staffCount={staffCount} onOpen={setActiveSection} />
           ) : activeSection === 'staff' ? (
             <ThemedView style={authStyles.panel}>
-              <SectionBack onPress={() => setActiveSection('dashboard')} />
               <ThemedView style={authStyles.panelHeader}>
                 <ThemedText type="sectionTitle">Create staff login</ThemedText>
                 <ThemedText type="small" style={authStyles.mutedText}>Give the staff member these credentials after creation.</ThemedText>
@@ -168,29 +156,13 @@ export function AdminDashboardScreen() {
               {loading ? <ActivityIndicator /> : <AuthButton label="Create staff account" onPress={submit} disabled={loading} />}
             </ThemedView>
           ) : (
-            <ExamAdminPanel section={activeSection} onBack={() => setActiveSection('dashboard')} onOpenSection={setActiveSection} />
+            <ExamAdminPanel section={activeSection} onOpenSection={setActiveSection} />
           )}
         </ThemedView>
       </ScrollView>
-      <ThemedView style={authStyles.fixedFooter}>
-        <ThemedView style={authStyles.footerInner}>
-          {activeSection !== 'dashboard' && <AuthButton label="Back to dashboard" onPress={() => setActiveSection('dashboard')} variant="secondary" />}
-          <AuthButton label="Back to login" onPress={logout} variant="secondary" />
-        </ThemedView>
-      </ThemedView>
     </ThemedView>
   );
 }
-
-const sectionTitles: Record<AdminSection, string> = {
-  dashboard: 'Admin Control',
-  staff: 'Create Staff',
-  books: 'Books',
-  chapters: 'Chapters',
-  import: 'CSV Import',
-  question: 'Create Question',
-  paper: 'Question Papers',
-};
 
 function AdminQuickLinks({ staffCount, onOpen }: { staffCount: number | null; onOpen: (section: AdminSection) => void }) {
   return (
@@ -219,8 +191,4 @@ function AdminQuickLinks({ staffCount, onOpen }: { staffCount: number | null; on
       </View>
     </ThemedView>
   );
-}
-
-function SectionBack({ onPress }: { onPress: () => void }) {
-  return <AuthButton label="Back to dashboard" onPress={onPress} variant="secondary" />;
 }

@@ -1,5 +1,5 @@
 import type {
-  DeleteQuestionPaperDto, PaperPreviewDto, GeneratePaperDto, AcademicGroup,
+  DeleteQuestionPaperDto, PaperPreviewDto, GeneratePaperDto, AcademicGroup, PaperCandidateAvailabilityDto,
   ExamAttemptDto, ExamQuotaDto,
   ExamBookDto,
   ExamChapterDto,
@@ -102,7 +102,7 @@ export const examService = {
     return apiRequest<DeleteQuestionPaperDto>(`/exams/admin/question-papers/${id}`, { method: 'DELETE' });
   },
   listPaperCandidates(bookId: string) {
-    return apiRequest<{ questions: ExamQuestionDto[]; limit: number }>('/exams/admin/question-papers/candidates' + query({ bookId }));
+    return apiRequest<{ questions: ExamQuestionDto[]; limit: number; availability?: PaperCandidateAvailabilityDto[] }>('/exams/admin/question-papers/candidates' + query({ bookId }));
   },
   generatePaperQuestions(payload: { bookId: string; chapterIds: string[]; eligibleGroups: AcademicGroup[]; count: number; difficulty?: string; preferFresh: boolean }) {
     return apiRequest<GeneratePaperDto>('/exams/admin/question-papers/generate', { method: 'POST', body: JSON.stringify(payload) });

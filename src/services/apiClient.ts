@@ -39,6 +39,7 @@ export function getApiErrorMessage(error: unknown) {
     if (error.code === 'INVALID_CREDENTIALS') {
       return 'Invalid email or password.';
     }
+    if (error.code === 'INVALID_CURRENT_PASSWORD') return 'Your current password is incorrect. Check it and try again.';
     if (error.code === 'ACCOUNT_NOT_ACTIVE') {
       return 'Account is not active yet. Verify email first, or contact admin if suspended.';
     }
