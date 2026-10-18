@@ -137,8 +137,8 @@ export const examService = {
   },
   examStatus() { return apiRequest<ExamQuotaDto>('/exams/status'); },
   getAttempt(id: string) { return apiRequest<{ attempt: ExamAttemptDto; paper?: QuestionPaperDto }>('/exams/attempts/' + id); },
-  saveAnswers(id: string, answers: { questionId: string; selectedOption: OptionKey }[], revision: number) {
-    return apiRequest<{ attempt: ExamAttemptDto }>('/exams/attempts/' + id + '/answers', { method: 'PUT', body: JSON.stringify({ answers, revision }) });
+  saveAnswers(id: string, answers: { questionId: string; selectedOption: OptionKey }[], revision: number, reviewQuestionIds?: string[]) {
+    return apiRequest<{ attempt: ExamAttemptDto }>('/exams/attempts/' + id + '/answers', { method: 'PUT', body: JSON.stringify({ answers, revision, reviewQuestionIds }) });
   },
   listAttempts() {
     return apiRequest<{ attempts: ExamAttemptDto[] }>('/exams/attempts');

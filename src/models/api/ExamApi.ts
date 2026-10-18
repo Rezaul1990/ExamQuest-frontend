@@ -39,6 +39,7 @@ export type ExamQuestionDto = {
 };
 
 export type QuestionPaperDto = {
+  resultsReleaseScheduledAt?: string;
   reviewStatus: ReviewStatus;
   revision: number;
   snapshotVersion?: number;
@@ -109,6 +110,8 @@ export type BankFilters = { chapterId?: string; q?: string; difficulty?: string;
 export type PaperCandidateAvailabilityDto = { chapterId: string; difficulty: string; total: number; approved: number; pendingReview: number };
 export type QuestionAnalyticsDto = { questionId: string; difficulty: Difficulty; paperCount: number; submissions: number; answered: number; correct: number; correctnessPercent: number | null };
 export type ExamAttemptDto = {
+  reviewQuestionIds?: string[];
+  reviewAvailable?: boolean;
   id: string;
   questionPaperId: string;
   paperTitle?: string;

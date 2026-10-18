@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import type { ExamAttemptDto, ExamBookDto, ExamChapterDto, ExamQuotaDto, OptionKey, QuestionPaperDto } from '@/models/api/ExamApi';
 import { ApiError, getApiErrorMessage } from '@/services/apiClient';
 import { examService } from '@/services/examService';
 import { answersFromAttempt, remainingSeconds } from '../memberExam.helpers';
 
-type Session = { attempt: ExamAttemptDto; paper: QuestionPaperDto; answers: Record<string, OptionKey>; revision: number; edit: number; saved: number; serverAnchor: number; monotonicAnchor: number };
+type Session = { attempt: ExamAttemptDto; paper: QuestionPaperDto; answers: Record<string, OptionKey>; reviewQuestionIds: string[]; revision: number; edit: number; saved: number; serverAnchor: number; monotonicAnchor: number };
 const payload = (answers: Record<string, OptionKey>) => Object.entries(answers).map(([questionId, selectedOption]) => ({ questionId, selectedOption }));
 export function useMemberExam() {
+  const [reviewQuestionIds,setReviewQuestionIds]=useState<string[]>([]);
   const [books,setBooks]=useState<ExamBookDto[]>([]), [chapters,setChapters]=useState<ExamChapterDto[]>([]), [papers,setPapers]=useState<QuestionPaperDto[]>([]), [attempts,setAttempts]=useState<ExamAttemptDto[]>([]);
   const [selectedBookId,setSelectedBookId]=useState(''), [selectedChapterId,setSelectedChapterId]=useState('');
   const [activeAttempt,setActiveAttempt]=useState<ExamAttemptDto|null>(null),[activePaper,setActivePaper]=useState<QuestionPaperDto|null>(null),[answers,setAnswers]=useState<Record<string,OptionKey>>({});
@@ -36,7 +38,8 @@ export function useMemberExam() {
     if(attempt.status!=='in_progress'){complete(attempt);return;}
     if(!paper)return;
     const restored=answersFromAttempt(attempt),serverAnchor=Date.parse(attempt.serverNow||new Date().toISOString());
-    session.current={attempt,paper,answers:restored,revision:attempt.answerRevision||0,edit:0,saved:0,serverAnchor,monotonicAnchor:performance.now()};
+    session.current={attempt,paper,answers:restored,reviewQuestionIds:attempt.reviewQuestionIds||[],revision:attempt.answerRevision||0,edit:0,saved:0,serverAnchor,monotonicAnchor:performance.now()};
+    setReviewQuestionIds(attempt.reviewQuestionIds||[]);
     setActiveAttempt(attempt);setActivePaper(paper);setAnswers(restored);setSaveMessage('Saved answers loaded.');setSecondsLeft(remainingSeconds(attempt.expiresAt,serverAnchor,0));retryAt.current=0;
   },[complete]);
   const submitExam=useCallback(async(reason:'manual'|'timer_expired'='manual')=>{
@@ -63,7 +66,7 @@ export function useMemberExam() {
         while(session.current&&session.current.edit>session.current.saved&&!submitLock.current){
           const current=session.current,captured=current.edit;
           if(remainingSeconds(current.attempt.expiresAt,current.serverAnchor,performance.now()-current.monotonicAnchor)===0)return false;
-          const response=await examService.saveAnswers(current.attempt.id,payload(current.answers),current.revision);
+          const response=await examService.saveAnswers(current.attempt.id,payload(current.answers),current.revision,current.reviewQuestionIds);
           if(session.current!==current)return true;
           if(response.attempt.status!=='in_progress'){complete(response.attempt);return true;}
           current.revision=response.attempt.answerRevision||0;current.saved=captured;
@@ -81,11 +84,7 @@ export function useMemberExam() {
     })();saveFlight.current=work;
     try{return await work;}finally{saveFlight.current=null;}
   },[adopt,complete]);
-  useEffect(()=>{
-    // Initial network load uses the same state as explicit refresh.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh();
-  },[refresh]);
+  useFocusEffect(useCallback(()=>{void refresh();},[refresh]));
   useEffect(()=>{
     if(!selectedBookId)return;
     let current=true;
@@ -98,7 +97,7 @@ export function useMemberExam() {
     if(!activeAttempt)return;
     const timeout=setTimeout(()=>{void flushSave();},400);
     return()=>clearTimeout(timeout);
-  },[answers,activeAttempt,flushSave]);
+  },[answers,reviewQuestionIds,activeAttempt,flushSave]);
   useEffect(()=>{
     if(!activeAttempt?.id)return;
     const tick=()=>{const current=session.current;if(!current)return;const left=remainingSeconds(current.attempt.expiresAt,current.serverAnchor,performance.now()-current.monotonicAnchor);setSecondsLeft(left);if(!left&&performance.now()>=retryAt.current)void submitExam('timer_expired');};
@@ -124,11 +123,16 @@ export function useMemberExam() {
     current.answers={...current.answers,[questionId]:selectedOption};current.edit++;
     setAnswers(current.answers);setSaveMessage('Saving...');setError(null);
   }
+  function toggleReview(questionId:string){
+    const current=session.current;if(!current||submitLock.current||secondsLeft<=0)return;
+    current.reviewQuestionIds=current.reviewQuestionIds.includes(questionId)?current.reviewQuestionIds.filter((id)=>id!==questionId):[...current.reviewQuestionIds,questionId];
+    current.edit++;setReviewQuestionIds(current.reviewQuestionIds);setSaveMessage('Saving...');
+  }
   async function startPaper(paper:QuestionPaperDto){
     if(submitLock.current)return;setLoading(true);setError(null);setResult(null);
     try{const response=await examService.startExam(paper.id);adopt(response.attempt,response.paper);setMessage(null);}catch(cause){setError(getApiErrorMessage(cause));}finally{setLoading(false);}
   }
   async function resumeAttempt(id:string){setLoading(true);setError(null);try{const response=await examService.getAttempt(id);adopt(response.attempt,response.paper);}catch(cause){setError(getApiErrorMessage(cause));}finally{setLoading(false);}}
   async function leaveAttempt(){if(submitLock.current)return;const saved=secondsLeft===0?true:await flushSave();if(!saved)return;session.current=null;setActiveAttempt(null);setActivePaper(null);setAnswers({});setMessage('You left the attempt. Its server timer continues; starting or saving did not use the daily allowance.');await refresh();}
-  return {books,chapters,papers,attempts,selectedBookId,selectedChapterId,setSelectedBookId,setSelectedChapterId,activeAttempt,activePaper,answers,result,quota,loading,error,message,submitting,saving,saveMessage,secondsLeft,selectAnswer,startPaper,submitExam,leaveAttempt,resumeAttempt,refresh,flushSave};
+  return {books,chapters,papers,attempts,selectedBookId,selectedChapterId,setSelectedBookId,setSelectedChapterId,activeAttempt,activePaper,answers,reviewQuestionIds,toggleReview,result,quota,loading,error,message,submitting,saving,saveMessage,secondsLeft,selectAnswer,startPaper,submitExam,leaveAttempt,resumeAttempt,refresh,flushSave};
 }

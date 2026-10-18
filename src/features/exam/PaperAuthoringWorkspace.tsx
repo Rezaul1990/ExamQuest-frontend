@@ -10,6 +10,7 @@ import { usePaperAuthoring } from './hooks/usePaperAuthoring';
 import { useAuth } from '@/store';
 import { QuestionBankWorkspace } from './QuestionBankWorkspace';
 import { paperDraftBlocker, type ImportedPaperSource } from './paperAuthoring.helpers';
+import { AdminQuestionReports, CloseAndReleaseResults } from './components/AdminStudentTools';
 
 export function PaperAuthoringWorkspace({ source }: { source?: ImportedPaperSource }) {
   const vm = usePaperAuthoring(source);
@@ -24,6 +25,7 @@ export function PaperAuthoringWorkspace({ source }: { source?: ImportedPaperSour
   const blocked = vm.busy || vm.loading;
   const compactImport = vm.isAdmin && !!source && !!vm.selection.bookId;
   return <View style={styles.stack}>
+    {vm.isAdmin && <AdminQuestionReports />}
     <ThemedText type="small">{vm.isAdmin ? 'Imported questions can be used immediately. Check audience, questions and settings, then create the exam for members.' : 'Choose the audience, select approved questions, preview, review and publish.'}</ThemedText>
     <ThemedText type="caption">{vm.isAdmin ? 'Create and publish exam makes your selection available to eligible students immediately, or at your optional opening time. Save draft is optional.' : 'Draft papers need review and approval before publication.'} Students can take published exams and view their own results.</ThemedText>
     <AuthButton label="Reload workspace" disabled={blocked} onPress={vm.refresh} variant="secondary" />
@@ -97,6 +99,7 @@ export function PaperAuthoringWorkspace({ source }: { source?: ImportedPaperSour
       <ThemedText type="caption">{paper.availabilityStatus || paper.status} · {paper.reviewStatus} · {paper.questionCount} questions · {paper.totalMarks} marks · {paper.durationMinutes} min</ThemedText>
       <ThemedText type="caption">{paper.className} · {paper.eligibleGroups.join(', ')} · {paper.subject}</ThemedText>
       <AuthButton label="Student preview / review" disabled={blocked} onPress={() => vm.openPreview(paper)} variant="secondary" />
+      {vm.isAdmin && <CloseAndReleaseResults paper={paper} onChanged={vm.refresh} />}
       {paper.status === 'draft' && <AuthButton label="Edit draft" disabled={blocked} onPress={() => vm.editDraft(paper)} variant="secondary" />}
       <AuthButton label="Archive paper" disabled={blocked} onPress={() => setArchiveTarget(paper)} variant="secondary" />
     </View>)}

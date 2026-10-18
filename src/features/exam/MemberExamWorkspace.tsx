@@ -1,70 +1,37 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
 import { authStyles } from '@/features/auth/Auth.styles';
-import { AuthButton, ScreenStat } from '@/features/auth/components/AuthFields';
+import { AuthButton, AuthTextField, ScreenStat } from '@/features/auth/components/AuthFields';
 import type { QuestionPaperDto } from '@/models/api/ExamApi';
 import { useMemberExam } from './hooks/useMemberExam';
-import { countdownLabel } from './memberExam.helpers';
+import { ActiveExamPanel } from './components/ActiveExamPanel';
+import { ResultReview } from './components/ResultReview';
 import { useExamNavigationGuard } from '@/features/navigation/useExamNavigationGuard';
 import { ExamExitDialog } from '@/features/navigation/ExamExitDialog';
 
 type MemberExamSection = 'exams' | 'history';
 
 export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: MemberExamSection; onBack?: () => void }) {
-  const { books, chapters, papers, attempts, selectedBookId, selectedChapterId, setSelectedBookId, setSelectedChapterId, activeAttempt, activePaper, answers, result, quota, loading, error, message, submitting, saving, saveMessage, secondsLeft, selectAnswer, startPaper, submitExam, leaveAttempt, resumeAttempt, refresh, flushSave } = useMemberExam();
+  const { books, chapters, papers, attempts, selectedBookId, selectedChapterId, setSelectedBookId, setSelectedChapterId, activeAttempt, activePaper, answers, reviewQuestionIds, toggleReview, result, quota, loading, error, message, submitting, saving, saveMessage, secondsLeft, selectAnswer, startPaper, submitExam, leaveAttempt, resumeAttempt, refresh, flushSave } = useMemberExam();
   const exitGuard = useExamNavigationGuard(!!activeAttempt && !!activePaper, leaveAttempt);
+  const [search, setSearch] = useState('');
   const selectedBook = books.find((book) => book.id === selectedBookId);
   const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId);
-  const answeredCount = Object.keys(answers).length;
+
   const submittedPaperIds = useMemo(() => new Set(attempts.filter((attempt) => attempt.status === 'submitted').map((attempt) => attempt.questionPaperId)), [attempts]);
   const inProgressPaperIds = useMemo(() => new Set(attempts.filter((attempt) => attempt.status === 'in_progress').map((attempt) => attempt.questionPaperId)), [attempts]);
-  const visiblePapers = papers.filter((paper) => !submittedPaperIds.has(paper.id));
+  const visiblePapers = papers.filter((paper) => !submittedPaperIds.has(paper.id) && `${paper.title} ${paper.subject || ''}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   if (activeAttempt && activePaper) {
     return (
       <ThemedView style={authStyles.panel}>
-        <ThemedView style={authStyles.panelHeader}>
-          <ThemedText type="sectionTitle">{activePaper.title}</ThemedText>
-          <ThemedText type="small" style={authStyles.mutedText}>
-            {answeredCount}/{activeAttempt.questions?.length || activePaper.questionCount} answered · {activePaper.durationMinutes} minutes
-          </ThemedText>
-        </ThemedView>
-        <ThemedText type="sectionTitle" accessibilityLiveRegion="polite">Time left: {countdownLabel(secondsLeft)}</ThemedText>
-        <ThemedText type="caption">{saveMessage}{saving ? ' Saving...' : ''}</ThemedText>
-        {secondsLeft === 0 && <ThemedText style={authStyles.info}>Time is over. Submission uses the answers saved before the server deadline. Retry below if the connection was interrupted.</ThemedText>}
-        <View style={examStyles.progressTrack}>
-          <View
-            style={[
-              examStyles.progressFill,
-              { width: `${Math.min(100, Math.round((answeredCount / Math.max(activeAttempt.questions?.length || activePaper.questionCount, 1)) * 100))}%` },
-            ]}
-          />
-        </View>
-        {activeAttempt.questions?.map((question, index) => (
-          <View key={question.id} style={examStyles.questionCard}>
-            <ThemedText type="smallBold">Q{index + 1}. {question.text}</ThemedText>
-            {question.options.map((option) => {
-              const selected = answers[question.id] === option.key;
-              return (
-                <Pressable key={option.key} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled: submitting || secondsLeft === 0 }} aria-checked={selected} disabled={submitting || secondsLeft === 0} onPress={() => selectAnswer(question.id, option.key)} style={[examStyles.optionRow, selected && examStyles.optionRowSelected]}>
-                  <View style={[authStyles.checkbox, selected && authStyles.checkboxSelected]}>
-                    <ThemedText style={authStyles.checkboxMark}>{selected ? '✓' : (option.label || option.key)}</ThemedText>
-                  </View>
-                  <ThemedText style={examStyles.optionText}>{option.text}</ThemedText>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-        {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
-        {submitting && <ActivityIndicator />}
-        <AuthButton label={submitting ? 'Submitting...' : secondsLeft === 0 ? 'Retry expiry submission' : 'Submit exam'} disabled={submitting} onPress={() => submitExam(secondsLeft === 0 ? 'timer_expired' : 'manual')} />
-        {secondsLeft > 0 && <AuthButton label="Retry saving answers" disabled={submitting || saving} onPress={flushSave} variant="secondary" />}
-        <AuthButton label="Reload saved answers" disabled={submitting || saving} onPress={() => resumeAttempt(activeAttempt.id)} variant="secondary" />
-        <AuthButton label="Back to papers" disabled={submitting || saving} onPress={exitGuard.requestLeave} variant="secondary" />
+        <ActiveExamPanel key={activeAttempt.id} attempt={activeAttempt} paper={activePaper} answers={answers} reviewIds={reviewQuestionIds}
+          secondsLeft={secondsLeft} submitting={submitting} saving={saving} saveMessage={saveMessage} error={error}
+          select={selectAnswer} toggleReview={toggleReview} submit={submitExam} save={flushSave}
+          reload={() => resumeAttempt(activeAttempt.id)} leave={exitGuard.requestLeave} />
         <ExamExitDialog mode={exitGuard.dialog} busy={exitGuard.leaving} onDismiss={exitGuard.dismiss} onConfirm={exitGuard.confirm} />
       </ThemedView>
     );
@@ -91,9 +58,10 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
       {message && <ThemedText style={authStyles.notice}>{message}</ThemedText>}
       {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
       {result && (
-        <ThemedText style={authStyles.info}>
-          Last result: {result.score}/{result.total} ({result.percentage}%)
-        </ThemedText>
+        <View style={authStyles.listCard}>
+          <ThemedText style={authStyles.info}>Result: {result.paperTitle} · {result.score}/{result.total} ({result.percentage}%)</ThemedText>
+          <ResultReview key={result.id} attemptId={result.id} />
+        </View>
       )}
       {section === 'exams' ? (
         <>
@@ -109,7 +77,8 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
           />
           {!!selectedChapter && <ThemedText type="caption" style={authStyles.mutedText}>Filtered by {selectedChapter.title}</ThemedText>}
           <ThemedText type="smallBold">Published papers</ThemedText>
-          {!visiblePapers.length && <EmptyState title="No open papers" body="No published paper is open for the selected book/chapter right now, or you already submitted the available paper." />}
+          <AuthTextField label="Search exams" placeholder="Paper title or subject" value={search} onChangeText={setSearch} maxLength={120} />
+          {!visiblePapers.length && !loading && <EmptyState title={search ? "No matching exams" : "No open papers"} body="No published paper is open for the selected book/chapter right now, or you already submitted the available paper." />}
           {visiblePapers.map((paper) => {
             const inProgress = inProgressPaperIds.has(paper.id);
             return (
@@ -202,44 +171,7 @@ const examStyles = StyleSheet.create({
     color: ExamQuestColors.brandPrimary,
     fontWeight: '800',
   },
-  questionCard: {
-    gap: Spacing.two,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: ExamQuestColors.border,
-    padding: Spacing.three,
-    backgroundColor: ExamQuestColors.surfaceSoft,
-  },
-  optionRow: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: ExamQuestColors.border,
-    padding: Spacing.twoHalf,
-    backgroundColor: ExamQuestColors.surface,
-  },
-  optionRowSelected: {
-    borderColor: ExamQuestColors.brandPrimary,
-    backgroundColor: ExamQuestColors.surfaceSelected,
-  },
-  optionText: {
-    flex: 1,
-    color: ExamQuestColors.textPrimary,
-  },
-  progressTrack: {
-    height: 10,
-    overflow: 'hidden',
-    borderRadius: Radius.sm,
-    backgroundColor: ExamQuestColors.surfaceSoft,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: Radius.sm,
-    backgroundColor: ExamQuestColors.brandPrimary,
-  },
+
 });
 
 function formatWindow(paper: QuestionPaperDto) {

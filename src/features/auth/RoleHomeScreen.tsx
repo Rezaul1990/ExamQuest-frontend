@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Routes } from '@/constants/Routes';
 import { authStyles } from '@/features/auth/Auth.styles';
 import { useAuth } from '@/store';
+import { StudentLearningPanel } from '@/features/exam/StudentLearningPanel';
 
 type StaffSection = 'dashboard' | 'books' | 'chapters' | 'import' | 'question' | 'paper';
 type MemberSection = 'dashboard' | 'exams' | 'history';
@@ -43,6 +44,7 @@ export function RoleHomeScreen() {
             </Link>
           </ThemedView>
           {isStaff ? <StaffQuickLinks userPermissions={user?.permissions || []} onOpen={(next) => router.navigate(workspaceHref(next))} /> : <MemberQuickLinks onOpen={(next) => router.navigate(next === 'history' ? '/results' : '/exams')} />}
+          {user?.role === 'MEMBER' && <StudentLearningPanel key={user.id} />}
         </ThemedView>
       </ScrollView>
     </ThemedView>
@@ -88,7 +90,7 @@ function MemberQuickLinks({ onOpen }: { onOpen: (section: MemberSection) => void
       </ThemedView>
       <DashboardWorkflowPanel
         title="Your exam path"
-        body="Pick a book, start an open paper, then review the score and explanations after submission."
+        body="Choose an open exam, save your answers and review your score. Explanations open after the exam closes and its final attempt time ends."
         badge="Student path"
         progress={38}
         steps={[

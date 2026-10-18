@@ -38,7 +38,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/features/exam/__tests__/csvImport.helpers.test.cjs src/features/exam/__tests__/paperAuthoring.helpers.test.cjs src/features/exam/__tests__/memberExam.helpers.test.cjs src/features/navigation/__tests__/navigation.test.cjs src/features/auth/__tests__/profile.test.cjs",
+    "test": "node --test src/features/exam/__tests__/csvImport.helpers.test.cjs src/features/exam/__tests__/paperAuthoring.helpers.test.cjs src/features/exam/__tests__/memberExam.helpers.test.cjs src/features/exam/__tests__/learning.helpers.test.cjs src/features/navigation/__tests__/navigation.test.cjs src/features/auth/__tests__/profile.test.cjs",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",

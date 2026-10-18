@@ -65,6 +65,10 @@ export function getApiErrorMessage(error: unknown) {
       return 'This question paper is not available for your class or group.';
     }
     const authoringErrors: Record<string, string> = {
+      REVIEW_NOT_RELEASED: 'Answer review is not available yet. Wait for the exam closing and final attempt time.',
+      RESULT_NOT_SUBMITTED: 'Submit this exam before opening answer review.',
+      RESULT_RELEASE_SCHEDULED: 'This paper already has a closing schedule, or has not opened yet. Answers follow that schedule.',
+      REPORT_CHANGED_RELOAD: 'This report was already handled. Reload the latest reports.',
       SUBMISSION_UNCONFIRMED: 'Submission could not be confirmed. Retry this same attempt; an accepted result will be returned without using another daily allowance.',
       DAILY_SUBMISSION_LIMIT: 'You have already submitted an exam today (Asia/Dhaka). You can submit another tomorrow.',
       ATTEMPT_EXPIRED: 'This attempt has expired. Check its result or start a fresh attempt when eligible.',
