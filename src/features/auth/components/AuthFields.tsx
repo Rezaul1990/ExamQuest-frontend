@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, TextInput, View, type TextInputProps } from 'react-native';
+import { TextInput, View, type TextInputProps } from 'react-native';
+import { ActionSurface } from '@/components/ui/ActionSurface';
 
 import { ThemedText } from '@/components/themed-text';
-import { ExamQuestColors } from '@/constants/theme';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useTheme } from '@/hooks/use-theme';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 
 type TextFieldProps = TextInputProps & {
   label: string;
@@ -17,42 +18,49 @@ type TextFieldProps = TextInputProps & {
 };
 
 export function AuthTextField({ label, helperText, errorText, showPasswordToggle, secureTextEntry, style, ...props }: TextFieldProps) {
+  const authStyles = useAuthStyles();
   const [visible, setVisible] = useState(false);
+  const theme = useTheme();
+  const [focused, setFocused] = useState(false);
   const isSecure = secureTextEntry && !visible;
 
   return (
     <View style={authStyles.fieldGroup}>
-      <ThemedText type="smallBold" style={authStyles.fieldLabel}>
+      <ThemedText type="smallBold" style={{ color: theme.textPrimary }}>
         {label}
       </ThemedText>
-      <View style={[authStyles.inputShell, errorText && authStyles.inputError]}>
+      <View style={[authStyles.inputShell, { backgroundColor: errorText ? theme.errorSoft : theme.surface, borderColor: errorText ? theme.error : focused ? theme.focusRing : theme.borderStrong }]}>
         <TextInput
           autoCapitalize="none"
-          placeholderTextColor={ExamQuestColors.textMuted}
+          allowFontScaling
+          maxFontSizeMultiplier={0}
+          placeholderTextColor={theme.textMuted}
           secureTextEntry={isSecure}
-          style={[authStyles.input, style]}
+          style={[authStyles.input, { color: theme.textPrimary }, style]}
           accessibilityLabel={label}
           {...props}
+          onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+          onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
         />
         {showPasswordToggle && (
-          <Pressable
+          <ActionSurface
             accessibilityRole="button"
             accessibilityLabel={visible ? 'Hide password' : 'Show password'}
             onPress={() => setVisible((current) => !current)}
             style={authStyles.inputAction}>
-            <ThemedText type="smallBold" style={authStyles.inputActionText}>
+            <ThemedText type="smallBold" style={{ color: theme.brandPrimary }}>
               {visible ? 'Hide' : 'Show'}
             </ThemedText>
-          </Pressable>
+          </ActionSurface>
         )}
       </View>
       {helperText && !errorText && (
-        <ThemedText type="caption" style={authStyles.fieldHelper}>
+        <ThemedText type="caption" style={{ color: theme.textMuted }}>
           {helperText}
         </ThemedText>
       )}
       {errorText && (
-        <ThemedText type="caption" style={authStyles.error}>
+        <ThemedText type="caption" style={[authStyles.error, { color: theme.error, backgroundColor: theme.errorSoft, borderColor: theme.error }]}>
           {errorText}
         </ThemedText>
       )}
@@ -71,9 +79,10 @@ export function AuthHero({
   title: string;
   body: string;
   badges?: string[];
-  preview?: 'exam' | 'access' | 'account';
+  preview?: 'exam' | 'access' | 'account' | null;
   children?: ReactNode;
 }) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.brandHero}>
       <View style={authStyles.heroAccent} />
@@ -97,13 +106,14 @@ export function AuthHero({
           ))}
         </View>
       )}
-      <HeroPreview variant={preview} />
+      {preview && <HeroPreview variant={preview} />}
       {children}
     </View>
   );
 }
 
 function HeroPreview({ variant }: { variant: 'exam' | 'access' | 'account' }) {
+  const authStyles = useAuthStyles();
   if (variant === 'access') {
     return (
       <View style={authStyles.heroPreview}>
@@ -230,6 +240,7 @@ function HeroPreview({ variant }: { variant: 'exam' | 'access' | 'account' }) {
 }
 
 export function StatusBadge({ label }: { label: string }) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.statusBadge}>
       <ThemedText type="caption" style={authStyles.statusBadgeText}>
@@ -240,6 +251,7 @@ export function StatusBadge({ label }: { label: string }) {
 }
 
 export function FormStepHeader({ number, title, body }: { number: string; title: string; body: string }) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.stepHeader}>
       <View style={authStyles.stepNumber}>
@@ -259,32 +271,38 @@ export function AuthButton({
   label,
   onPress,
   disabled,
+  busy,
   variant = 'primary',
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  busy?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
 }) {
+  const authStyles = useAuthStyles();
+  const theme = useTheme();
   return (
-    <Pressable
+    <ActionSurface
       accessibilityRole="button"
       disabled={disabled}
+      busy={busy}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         authStyles.button,
         variant === 'secondary' && authStyles.secondaryButton,
         variant === 'danger' && authStyles.dangerButton,
-        disabled && { opacity: 0.6 },
+        { backgroundColor: variant === 'secondary' ? (pressed ? theme.surfaceSelected : theme.surface) : variant === 'danger' ? (pressed ? theme.errorPressed : theme.error) : (pressed ? theme.brandPressed : theme.brandPrimary), borderColor: theme.borderStrong },
       ]}>
-      <ThemedText style={[authStyles.buttonText, variant === 'secondary' && authStyles.secondaryButtonText]}>
+      <ThemedText style={[authStyles.buttonText, { color: variant === 'secondary' ? theme.textPrimary : variant === 'danger' ? theme.onError : theme.onBrandPrimary }]}>
         {label}
       </ThemedText>
-    </Pressable>
+    </ActionSurface>
   );
 }
 
 export function ScreenStat({ label, value }: { label: string; value: string }) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.statItem}>
       <ThemedText type="caption" style={authStyles.mutedText}>

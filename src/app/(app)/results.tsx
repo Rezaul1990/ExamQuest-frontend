@@ -1,2 +1,4 @@
-import { MemberExamScreen } from '@/features/navigation/MemberExamScreen';
-export default function Results() { return <MemberExamScreen section="history" />; }
+import { Redirect } from 'expo-router';
+
+// Preserve existing bookmarks without adding a fifth Member tab.
+export default function Results() { return <Redirect href="/progress" />; }

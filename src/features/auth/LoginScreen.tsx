@@ -1,36 +1,44 @@
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { FeedbackNotice } from '@/components/FeedbackNotice';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Routes } from '@/constants/Routes';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthHero, AuthTextField } from '@/features/auth/components/AuthFields';
-import { getApiErrorMessage } from '@/services/apiClient';
+import { authErrorMessage, loginError, normalizeAuthEmail } from './authFeedback';
 import { useAuth } from '@/store';
+import { AppearanceSettings } from '@/features/appearance/AppearanceSettings';
 
 export function LoginScreen() {
+  const authStyles = useAuthStyles();
   const { login, sessionNotice } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitting = useRef(false);
 
   async function submit() {
-    if (!email.trim() || !password) {
-      setError('Enter both email and password to continue.');
+    if (submitting.current) return;
+    const invalid = loginError(email, password);
+    if (invalid) {
+      setError(invalid);
       return;
     }
+    submitting.current = true;
     setLoading(true);
     setError(null);
     try {
-      await login(email, password);
+      await login(normalizeAuthEmail(email), password);
       router.replace(Routes.home);
     } catch (submitError) {
-      setError(getApiErrorMessage(submitError));
+      setError(authErrorMessage(submitError));
     } finally {
       setLoading(false);
+      submitting.current = false;
     }
   }
 
@@ -46,15 +54,17 @@ export function LoginScreen() {
               badges={['Member', 'Staff', 'Admin']}
             />
           </ThemedView>
+          <AppearanceSettings />
           <ThemedView style={authStyles.panel}>
             {sessionNotice && <ThemedText accessibilityRole="alert" style={sessionNotice.tone === 'warning' ? authStyles.notice : authStyles.info}>{sessionNotice.message}</ThemedText>}
             <ThemedView style={authStyles.panelHeader}>
               <ThemedText type="sectionTitle">Account details</ThemedText>
               <ThemedText type="small" style={authStyles.mutedText}>Use the same email you registered with.</ThemedText>
             </ThemedView>
-            <AuthTextField label="Email" placeholder="name@example.com" value={email} onChangeText={setEmail} keyboardType="email-address" textContentType="emailAddress" autoComplete="email" />
-            <AuthTextField label="Password" placeholder="Enter password" value={password} onChangeText={setPassword} secureTextEntry showPasswordToggle textContentType="password" autoComplete="password" />
-            {error && <ThemedText style={authStyles.error}>{error}</ThemedText>}
+            <AuthTextField label="ইমেইল" placeholder="name@example.com" value={email} onChangeText={(value) => { setEmail(value); setError(null); }} editable={!loading} keyboardType="email-address" textContentType="emailAddress" autoComplete="email" autoCorrect={false} />
+            <AuthTextField label="পাসওয়ার্ড" placeholder="পাসওয়ার্ড লিখুন" value={password} onChangeText={(value) => { setPassword(value); setError(null); }} editable={!loading} secureTextEntry showPasswordToggle textContentType="password" autoComplete="password" onSubmitEditing={submit} returnKeyType="go" />
+            {loading && <FeedbackNotice kind="loading" title="লগইন হচ্ছে…" />}
+            {error && <FeedbackNotice kind="error" title="লগইন করা যায়নি" message={error} />}
             <ThemedView style={authStyles.info}>
               <ThemedText type="smallBold">Member accounts are self-service.</ThemedText>
               <ThemedText type="small">Staff access is created by Admin with selected permissions.</ThemedText>
@@ -62,12 +72,12 @@ export function LoginScreen() {
             <ThemedView style={authStyles.sectionDivider} />
             <View style={authStyles.linkRow}>
               <Link href={Routes.register} asChild>
-                <Pressable style={authStyles.linkCard}>
+                <Pressable disabled={loading} style={authStyles.linkCard}>
                   <ThemedText type="smallBold" style={authStyles.linkCardText}>Create member account</ThemedText>
                 </Pressable>
               </Link>
               <Link href={Routes.forgotPassword} asChild>
-                <Pressable style={authStyles.linkCard}>
+                <Pressable disabled={loading} style={authStyles.linkCard}>
                   <ThemedText type="smallBold" style={authStyles.linkCardText}>Forgot password</ThemedText>
                 </Pressable>
               </Link>
@@ -77,7 +87,7 @@ export function LoginScreen() {
       </ScrollView>
       <ThemedView style={authStyles.fixedFooter}>
         <ThemedView style={authStyles.footerInner}>
-          {loading ? <ActivityIndicator /> : <AuthButton label="Login" onPress={submit} disabled={loading} />}
+          <AuthButton label={loading ? 'লগইন হচ্ছে…' : 'লগইন'} onPress={submit} busy={loading} disabled={loading} />
         </ThemedView>
       </ThemedView>
     </ThemedView>

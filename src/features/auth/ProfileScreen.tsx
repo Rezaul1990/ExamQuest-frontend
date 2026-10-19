@@ -1,15 +1,21 @@
+import { useTheme, useThemeScheme } from '@/hooks/use-theme';
 import { Redirect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
-import { ExamQuestColors as C, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { Colors, type ThemePalette, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { useProfile } from './hooks/useProfile';
+import { AppearanceSettings } from '@/features/appearance/AppearanceSettings';
+import { AcademicProfileEditor } from './components/AcademicProfileEditor';
 import { profileInitials, profilePermissions, profileRoleLabel, profileSections, profileStatusLabel } from './profile.helpers';
 
 export function ProfileScreen() {
+  const authStyles = useAuthStyles();
+  const styles = useStyles();
+  const C = useTheme();
  const vm = useProfile();
  const user = vm.user;
  if (vm.restoring) return <ActivityIndicator style={styles.loading} accessibilityLabel="Loading account" />;
@@ -57,6 +63,8 @@ export function ProfileScreen() {
       </>}
      </View>
     </View>}
+    {user.role === 'MEMBER' && <AcademicProfileEditor key={user.id} user={user} disabled={vm.busy || vm.refreshing} />}
+    <AppearanceSettings />
     <View style={styles.section}>
      <ThemedText type="smallBold" style={styles.sectionTitle}>Security & sessions</ThemedText>
      <View style={styles.list}>
@@ -65,7 +73,7 @@ export function ProfileScreen() {
       <AccountAction label="Logout all devices" description="End every active session, including this one" disabled={vm.busy} onPress={() => vm.open('logoutAll')} danger />
      </View>
      {vm.busy && !vm.dialog && <ActivityIndicator accessibilityLabel="Signing out" />}
-     <ThemedText type="caption" style={styles.muted}>Account details are read-only here. Your role and access are managed by Admin.</ThemedText>
+     <ThemedText type="caption" style={styles.muted}>Your role and access are managed by Admin. Members can update academic details above.</ThemedText>
     </View>
    </View>
   </ScrollView>
@@ -92,12 +100,14 @@ export function ProfileScreen() {
  </View>;
 }
 function AccountAction({ label, description, disabled, onPress, danger }: { label: string; description: string; disabled: boolean; onPress: () => void; danger?: boolean }) {
+  const styles = useStyles();
+  const C = useTheme();
  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.action, styles.divider, pressed && styles.pressed, disabled && styles.disabled]}>
   <View style={styles.permissionCopy}><ThemedText type="smallBold" style={danger && { color: C.error }}>{label}</ThemedText><ThemedText type="caption" style={styles.muted}>{description}</ThemedText></View>
   <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={20} tintColor={C.textMuted} />
  </Pressable>;
 }
-const styles = StyleSheet.create({
+function createStyles(C: ThemePalette) { return StyleSheet.create({
  screen: { flex: 1, backgroundColor: C.background }, loading: { flex: 1 },
  scroll: { flexGrow: 1, alignItems: 'center', padding: Spacing.three, paddingBottom: Spacing.four },
  content: { width: '100%', maxWidth: MaxContentWidth, gap: Spacing.four },
@@ -115,6 +125,8 @@ const styles = StyleSheet.create({
  value: { color: C.textPrimary }, permission: { flexDirection: 'row', alignItems: 'flex-start', padding: Spacing.three, gap: Spacing.twoHalf }, permissionCopy: { flex: 1, minWidth: 0, gap: Spacing.one },
  action: { minHeight: 72, padding: Spacing.three, flexDirection: 'row', alignItems: 'center', gap: Spacing.two }, pressed: { backgroundColor: C.surfaceSoft }, disabled: { opacity: 0.5 },
  errorBox: { padding: Spacing.three, gap: Spacing.two, borderRadius: Radius.md, backgroundColor: C.errorSoft }, errorText: { color: C.error }, warning: { padding: Spacing.three, color: C.warning, backgroundColor: C.warningSoft, borderRadius: Radius.md },
- modalScreen: { flex: 1, backgroundColor: 'rgba(15,23,42,0.4)' }, modalSafe: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.three },
+ modalScreen: { flex: 1, backgroundColor: C.scrim }, modalSafe: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.three },
  dialog: { width: '100%', maxWidth: 440, maxHeight: '100%', borderRadius: Radius.lg, backgroundColor: C.surface, overflow: 'hidden' }, dialogContent: { padding: Spacing.four, gap: Spacing.three },
-});
+}); }
+const stylesByScheme = { light: createStyles(Colors.light), dark: createStyles(Colors.dark) };
+function useStyles() { return stylesByScheme[useThemeScheme()]; }

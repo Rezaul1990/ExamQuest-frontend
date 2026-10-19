@@ -33,7 +33,7 @@ export class ApiError extends Error {
 
 export function getApiErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
-    if (error.details?.length) {
+    if (error.code === 'VALIDATION_ERROR' && error.details?.length) {
       return error.details.map((detail) => `${detail.path}: ${detail.message}`).join('\n');
     }
     if (error.code === 'INVALID_CREDENTIALS') {
@@ -41,7 +41,7 @@ export function getApiErrorMessage(error: unknown) {
     }
     if (error.code === 'INVALID_CURRENT_PASSWORD') return 'Your current password is incorrect. Check it and try again.';
     if (error.code === 'ACCOUNT_NOT_ACTIVE') {
-      return 'Account is not active yet. Verify email first, or contact admin if suspended.';
+      return 'This account is not active. Contact Admin to check its status.';
     }
     if (error.code === 'EMAIL_ALREADY_REGISTERED') {
       return 'This email is already registered. Try login or forgot password.';
@@ -92,7 +92,14 @@ export function getApiErrorMessage(error: unknown) {
       INVALID_REVIEW_TRANSITION: 'Complete the previous review step first.',
       PAPER_ARCHIVED: 'This paper is archived. Create a new draft to use its category again.',
     };
-    return (error.code && authoringErrors[error.code]) || error.code || error.message;
+    if (error.code && authoringErrors[error.code]) return authoringErrors[error.code];
+    if (error.status === 401) return 'Your session has expired. Sign in again to continue.';
+    if (error.status === 403) return 'You do not have permission to perform this action.';
+    if (error.status === 429) return 'Too many attempts. Please wait and try again.';
+    if (error.status >= 500) return 'The service is temporarily unavailable. Please try again.';
+    if (error.status === 404) return 'This item is no longer available. Refresh the list to check again.';
+    if (error.code === 'VALIDATION_ERROR') return 'Check the entered information and try again.';
+    return 'The request could not be completed. Please try again.';
   }
   return 'Network or server error. Please check your connection and try again.';
 }

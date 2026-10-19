@@ -18,16 +18,19 @@ export function useMemberExam() {
   const [loading,setLoading]=useState(true),[submitting,setSubmitting]=useState(false),[saving,setSaving]=useState(false),[saveMessage,setSaveMessage]=useState(''),[secondsLeft,setSecondsLeft]=useState(0);
   const [message,setMessage]=useState<string|null>(null),[error,setError]=useState<string|null>(null);
   const session=useRef<Session|null>(null),submitLock=useRef(false),saveFlight=useRef<Promise<boolean>|null>(null),retryAt=useRef(0);
+  const refreshGeneration=useRef(0);
 
   const refresh=useCallback(async()=>{
+    const generation=++refreshGeneration.current;
     setLoading(true);setError(null);
     try{
       const [catalog,history,status]=await Promise.all([examService.listBooks(),examService.listAttempts(),examService.examStatus()]);
+      if(generation!==refreshGeneration.current)return;
       setBooks(catalog.books);setAttempts(history.attempts);setQuota(status);setRefreshVersion((value)=>value+1);
       setSelectedBookId((id)=>catalog.books.some((book)=>book.id===id)?id:catalog.books[0]?.id||'');
       if(!catalog.books.length){setChapters([]);setPapers([]);}
-    }catch(cause){setError(getApiErrorMessage(cause));}
-    finally{setLoading(false);}
+    }catch(cause){if(generation===refreshGeneration.current)setError(getApiErrorMessage(cause));}
+    finally{if(generation===refreshGeneration.current)setLoading(false);}
   },[]);
   const complete=useCallback((attempt:ExamAttemptDto)=>{
     session.current=null;setActiveAttempt(null);setActivePaper(null);setAnswers({});setSaveMessage('');
@@ -133,6 +136,6 @@ export function useMemberExam() {
     try{const response=await examService.startExam(paper.id);adopt(response.attempt,response.paper);setMessage(null);}catch(cause){setError(getApiErrorMessage(cause));}finally{setLoading(false);}
   }
   async function resumeAttempt(id:string){setLoading(true);setError(null);try{const response=await examService.getAttempt(id);adopt(response.attempt,response.paper);}catch(cause){setError(getApiErrorMessage(cause));}finally{setLoading(false);}}
-  async function leaveAttempt(){if(submitLock.current)return;const saved=secondsLeft===0?true:await flushSave();if(!saved)return;session.current=null;setActiveAttempt(null);setActivePaper(null);setAnswers({});setMessage('You left the attempt. Its server timer continues; starting or saving did not use the daily allowance.');await refresh();}
+  async function leaveAttempt(){if(submitLock.current)return false;const saved=secondsLeft===0?true:await flushSave();if(!saved)return false;session.current=null;setActiveAttempt(null);setActivePaper(null);setAnswers({});setMessage('You left the attempt. Its server timer continues; starting or saving did not use the daily allowance.');await refresh();return true;}
   return {books,chapters,papers,attempts,selectedBookId,selectedChapterId,setSelectedBookId,setSelectedChapterId,activeAttempt,activePaper,answers,reviewQuestionIds,toggleReview,result,quota,loading,error,message,submitting,saving,saveMessage,secondsLeft,selectAnswer,startPaper,submitExam,leaveAttempt,resumeAttempt,refresh,flushSave};
 }

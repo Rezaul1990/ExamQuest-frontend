@@ -3,12 +3,19 @@
  * https://docs.expo.dev/guides/color-schemes/
  */
 
-import { Colors } from '@/constants/theme';
+import { createContext, useContext } from 'react';
+import { Colors, resolveThemeScheme, type ThemePalette, type ThemeScheme } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
+const ThemeContext = createContext<ThemeScheme | 'system'>('system');
+export const ThemeScope = ThemeContext.Provider;
 
-  return Colors[theme];
+export function useThemeScheme(): ThemeScheme {
+  const scoped = useContext(ThemeContext);
+  const scheme = useColorScheme();
+  return resolveThemeScheme(scoped === 'system' ? scheme : scoped);
+}
+
+export function useTheme(): ThemePalette {
+  return Colors[useThemeScheme()];
 }

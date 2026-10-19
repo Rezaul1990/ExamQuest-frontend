@@ -1,8 +1,11 @@
-import type { AuthResponseDto, RegisterMemberRequest, RegisterMemberResponse } from '@/models/api/AuthApi';
+import type { AcademicProfileRequest, AuthResponseDto, RegisterMemberRequest, RegisterMemberResponse } from '@/models/api/AuthApi';
 import type { AuthUser } from '@/models/domain/Auth';
 import { apiRequest } from '@/services/apiClient';
 
 export const authService = {
+  updateAcademicProfile(payload: AcademicProfileRequest) {
+    return apiRequest<{ user: AuthUser }>('/auth/me/academic-profile', { method: 'PATCH', body: JSON.stringify(payload) });
+  },
   register(payload: RegisterMemberRequest) {
     return apiRequest<RegisterMemberResponse>('/auth/register', {
       auth: false,

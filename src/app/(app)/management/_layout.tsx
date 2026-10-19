@@ -2,6 +2,9 @@ import { Stack, router } from 'expo-router';
 import { NavigationHeader } from '@/features/navigation/NavigationHeader';
 import { managementSections, type ManagementSection } from '@/features/navigation/navigation';
 
+// Seed the nested index behind a deep-linked tool, including native hardware Back.
+export const unstable_settings = { initialRouteName: 'index' };
+
 export default function ManagementLayout() {
   return <Stack screenOptions={{ header: ({ options, navigation, back, route }) => <NavigationHeader title={options.title || 'Management'} canGoBack={route.name !== 'index'} onBack={() => back ? navigation.goBack() : router.replace('/management')} /> }}>
     <Stack.Screen name="index" options={{ title: 'Management' }} />

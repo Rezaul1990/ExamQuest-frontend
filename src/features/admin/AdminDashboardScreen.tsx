@@ -8,7 +8,7 @@ import { DashboardWorkflowPanel } from '@/components/DashboardWorkflowPanel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { staffPermissions } from '@/constants/Permissions';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields';
 import { ExamAdminPanel } from '@/features/exam/ExamAdminPanel';
 import { getApiErrorMessage } from '@/services/apiClient';
@@ -20,6 +20,7 @@ import type { AuthUser } from '@/models/domain/Auth';
 type AdminSection = 'dashboard' | 'staff' | 'books' | 'chapters' | 'import' | 'question' | 'paper';
 
 export function AdminDashboardScreen({ section = 'dashboard' }: { section?: AdminSection }) {
+  const authStyles = useAuthStyles();
   const activeSection = section;
   const setActiveSection = (next: AdminSection) => router.navigate(workspaceHref(next));
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -165,6 +166,7 @@ export function AdminDashboardScreen({ section = 'dashboard' }: { section?: Admi
 }
 
 function AdminQuickLinks({ staffCount, onOpen }: { staffCount: number | null; onOpen: (section: AdminSection) => void }) {
+  const authStyles = useAuthStyles();
   return (
     <ThemedView style={authStyles.panel}>
       <ThemedView style={authStyles.panelHeader}>

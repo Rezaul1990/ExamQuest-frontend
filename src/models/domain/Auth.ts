@@ -13,6 +13,7 @@ export type AuthUser = {
   className?: string;
   group?: 'Science' | 'Humanities' | 'BusinessStudies';
   academicYear?: number;
+  academicProfileRevision?: number;
   dateOfBirth?: string;
   createdAt?: string;
   updatedAt?: string;

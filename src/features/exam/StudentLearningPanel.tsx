@@ -1,27 +1,30 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { View } from 'react-native';
+import { FeedbackNotice } from '@/components/FeedbackNotice';
 import { ThemedText } from '@/components/themed-text';
 import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields';
-import { authStyles } from '@/features/auth/Auth.styles';
 import { useLearning } from './hooks/useLearning';
 import { filterDiscovery } from './learning.helpers';
 import { PracticePanel } from './components/PracticePanel';
-import { learningStyles as s } from './components/learning.styles';
+import { useLearningStyles } from './components/learning.styles';
 
 export function StudentLearningPanel(){
+  const s = useLearningStyles();
   const vm=useLearning(),[search,setSearch]=useState(''),[view,setView]=useState<'all'|'upcoming'|'reminders'>('all'),[practice,setPractice]=useState(false);
   const papers=filterDiscovery(vm.discovery?.papers||[],search,view);
   return <View style={s.stack}>
     <View style={s.card}>
       <ThemedText type="sectionTitle">Your learning progress</ThemedText>
       <AuthButton label="Refresh learning & schedule" disabled={vm.loading||vm.busy} onPress={vm.refresh} variant="secondary" />
-      {vm.loading&&<ActivityIndicator accessibilityLabel="Loading student workspace" />}
-      {!!vm.error&&<ThemedText accessibilityRole="alert" style={authStyles.error}>{vm.error} Retry using Refresh.</ThemedText>}
+      {vm.loading&&<FeedbackNotice kind="loading" title={vm.overview?'Refreshing learning & schedule':'Loading learning & schedule'} />}
+      {!!vm.loadError&&<FeedbackNotice kind="error" title="Learning & schedule could not load" message={vm.loadError+(vm.overview?' Previously loaded data is still shown.':'')} onRetry={vm.refresh} retryLabel="Retry loading learning & schedule" busy={vm.loading||vm.busy} />}
+      {!!vm.actionError&&<FeedbackNotice kind="error" title="Reminder update failed" message={vm.actionError} onRetry={vm.retryReminder} retryLabel="Retry reminder update" busy={vm.busy||vm.loading} />}
+      {!!vm.message&&<FeedbackNotice kind="success" title="Reminder updated" message={vm.message} onDismiss={vm.clearMessage} />}
       {vm.overview&&<>
         <ThemedText>{vm.overview.submissionCount} eligible submissions · latest {vm.overview.window} submitted exams</ThemedText>
         <ThemedText type="caption">Accuracy includes unanswered questions. Historical accepted marks stay unchanged; chapter names follow the current library.</ThemedText>
-        {!vm.overview.chapters.length&&<ThemedText>No progress yet. Submit your first eligible exam to build your learning history.</ThemedText>}
+        {!vm.loading&&!vm.loadError&&!vm.overview.chapters.length&&<FeedbackNotice kind="empty" title="No progress yet" message="Submit your first eligible exam to build your learning history." />}
         {vm.overview.chapters.map((c)=><View key={c.id} style={s.card}>
           <ThemedText type="smallBold">{c.bookTitle} · {c.chapterTitle}</ThemedText>
           <ThemedText>{c.accuracy}% accuracy · {c.correct}/{c.total} correct · {c.answered} answered</ThemedText>
@@ -40,7 +43,7 @@ export function StudentLearningPanel(){
       <ThemedText type="caption">Reminders are saved to your account and shown here when you open the app. No phone notification is sent. Refresh to update availability; closed, archived and completed papers leave this list.</ThemedText>
       <AuthTextField label="Find an exam" placeholder="Title or subject" value={search} onChangeText={setSearch} maxLength={120} />
       <View style={s.row}>{(['all','upcoming','reminders'] as const).map((item)=><AuthButton key={item} label={`${view===item?'✓ ':''}${{all:'Open & upcoming',upcoming:'Upcoming',reminders:'My reminders'}[item]}`} onPress={()=>setView(item)} variant="secondary" />)}</View>
-      {!papers.length&&!vm.loading&&<ThemedText>No matching exams. Upcoming papers appear when Admin publishes a schedule for your class and group.</ThemedText>}
+      {!papers.length&&!vm.loading&&!vm.loadError&&vm.discovery&&<FeedbackNotice kind="empty" title="No matching exams" message="Upcoming papers appear when Admin publishes a schedule for your class and group." />}
       {papers.map((p)=><View key={p.id} style={s.card}>
         <ThemedText type="smallBold">{p.title}</ThemedText><ThemedText>{p.subject} · {p.questionCount} questions · {p.durationMinutes} minutes</ThemedText>
         <ThemedText>{p.upcoming?'Upcoming':'Open now'} · {p.availableFrom?new Date(p.availableFrom).toLocaleString():'Available now'}{p.availableUntil?` → ${new Date(p.availableUntil).toLocaleString()}`:''}</ThemedText>

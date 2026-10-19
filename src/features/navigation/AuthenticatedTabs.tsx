@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router/js-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ExamQuestColors } from '@/constants/theme';
+import { Typography } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/store';
 import { PaperSourceProvider } from '@/features/exam/PaperSourceContext';
 import { ExamNavigationProvider, useExamNavigation } from './ExamNavigationContext';
@@ -13,6 +14,7 @@ export default function AuthenticatedTabs() {
   return <ExamNavigationProvider key={user?.id}><PaperSourceProvider><RoleTabs /></PaperSourceProvider></ExamNavigationProvider>;
 }
 function RoleTabs() {
+  const ExamQuestColors = useTheme();
   const user = useAuth((state) => state.user);
   const { active } = useExamNavigation();
   const insets = useSafeAreaInsets();
@@ -23,7 +25,7 @@ function RoleTabs() {
       tabBarHideOnKeyboard: true,
       tabBarActiveTintColor: ExamQuestColors.brandPrimary,
       tabBarInactiveTintColor: ExamQuestColors.textSecondary,
-      tabBarLabelStyle: { fontSize: 11, lineHeight: 16, fontWeight: '600' },
+      tabBarLabelStyle: Typography.tab,
       tabBarStyle: active ? { display: 'none' } : { height: 64 + insets.bottom, paddingTop: 6, paddingBottom: Math.max(insets.bottom, 6), backgroundColor: ExamQuestColors.surface, borderTopColor: ExamQuestColors.border },
     }}>
     {(Object.keys(tabConfig) as TabName[]).map((name) => {
@@ -34,5 +36,8 @@ function RoleTabs() {
         tabBarIcon: ({ color }) => <SymbolView name={config.icon} size={22} tintColor={color} />,
       }} /></Tabs.Protected>;
     })}
+    <Tabs.Protected guard={canOpenTab(user, 'progress')}>
+      <Tabs.Screen name="results" options={{ href: null }} />
+    </Tabs.Protected>
   </Tabs>;
 }

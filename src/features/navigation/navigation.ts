@@ -11,7 +11,7 @@ export type WorkspaceSection = ManagementSection | 'dashboard' | 'paper' | 'staf
 export const tabConfig = {
   index: { title: 'Dashboard', label: 'Home', icon: { ios: 'house', android: 'home', web: 'home' } },
   exams: { title: 'Exams', label: 'Exams', icon: { ios: 'pencil.and.list.clipboard', android: 'assignment', web: 'assignment' } },
-  results: { title: 'Results', label: 'Results', icon: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
+  progress: { title: 'Progress', label: 'Progress', icon: { ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' } },
   papers: { title: 'Question Papers', label: 'Papers', icon: { ios: 'doc.text', android: 'description', web: 'description' } },
   staff: { title: 'Staff', label: 'Staff', icon: { ios: 'person.2', android: 'group', web: 'group' } },
   management: { title: 'Management', label: 'Manage', icon: { ios: 'folder', android: 'folder', web: 'folder' } },
@@ -26,7 +26,7 @@ export function canManageSection(user: AuthUser | null, section: string): sectio
 export function canOpenTab(user: AuthUser | null, tab: TabName) {
   if (!user) return false;
   if (tab === 'index' || tab === 'profile') return true;
-  if (tab === 'exams' || tab === 'results') return user.role === 'MEMBER';
+  if (tab === 'exams' || tab === 'progress') return user.role === 'MEMBER';
   if (tab === 'staff') return user.role === 'ADMIN';
   if (tab === 'papers') return user.role === 'ADMIN' || (user.role === 'STAFF' && !!user.permissions?.includes('EXAM_MANAGE'));
   return Object.keys(managementSections).some((section) => canManageSection(user, section));

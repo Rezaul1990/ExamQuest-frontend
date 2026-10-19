@@ -1,11 +1,12 @@
+import { useTheme, useThemeScheme } from '@/hooks/use-theme';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { Colors, type ThemePalette, Radius, Spacing } from '@/constants/theme';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthTextField, ScreenStat } from '@/features/auth/components/AuthFields';
 import type { ExamBookDto, ExamChapterDto, ExamQuestionDto, ImportCommitDto, ImportPreviewDto, ImportPreviewRowDto, ImportRowDto, OptionKey, QuestionPaperDto } from '@/models/api/ExamApi';
 import { getApiErrorMessage } from '@/services/apiClient';
@@ -27,6 +28,9 @@ type ExamAdminSection = 'books' | 'chapters' | 'import' | 'question' | 'paper';
 const sectionPermission: Record<ExamAdminSection, string> = { books: 'CONTENT_READ', chapters: 'CONTENT_MANAGE', import: 'QUESTION_MANAGE', question: 'QUESTION_MANAGE', paper: 'EXAM_MANAGE' };
 
 export function ExamAdminPanel({ section = 'books', onBack, onOpenSection }: { section?: ExamAdminSection; onBack?: () => void; onOpenSection?: (section: ExamAdminSection) => void }) {
+  const authStyles = useAuthStyles();
+  const examStyles = useExamStyles();
+  const ExamQuestColors = useTheme();
   const user = useAuth((state) => state.user);
   const canManageExams = user?.role === 'ADMIN' || (user?.role === 'STAFF' && !!user.permissions?.includes('EXAM_MANAGE'));
   const canManageQuestions = user?.role === 'ADMIN' || (user?.role === 'STAFF' && !!user.permissions?.includes('QUESTION_MANAGE'));
@@ -507,6 +511,7 @@ function buildPreviewMessage(result: ImportPreviewDto) {
 }
 
 function WorkspaceSummary({ label, title, meta, badge }: { label: string; title: string; meta: string; badge: string }) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.workspaceToolbar}>
       <View style={authStyles.workspaceToolbarRow}>
@@ -524,6 +529,7 @@ function WorkspaceSummary({ label, title, meta, badge }: { label: string; title:
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.emptyState}>
       <ThemedText type="smallBold">{title}</ThemedText>
@@ -533,6 +539,8 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 }
 
 function ImportPreviewList({ rows, disabled, onEditRow, onRemoveRow }: { rows: ImportPreviewRowDto[]; disabled: boolean; onEditRow: (row: ImportPreviewRowDto) => void; onRemoveRow: (rowNumber: number) => void }) {
+  const authStyles = useAuthStyles();
+  const examStyles = useExamStyles();
   return (
     <View style={examStyles.previewList}>
       {rows.map((row) => {
@@ -573,6 +581,7 @@ function ImportRowEditModal({ row, form, busy, onChange, onCancel, onSave }: {
   onCancel: () => void;
   onSave: () => void;
 }) {
+  const examStyles = useExamStyles();
   if (!row || !form) return null;
   return (
     <Modal visible transparent animationType="slide" onRequestClose={() => { if (!busy) onCancel(); }}>
@@ -608,6 +617,8 @@ function ImportSuccessModal({
   onBuildPaper: () => void;
   admin: boolean;
 }) {
+  const authStyles = useAuthStyles();
+  const examStyles = useExamStyles();
   if (!summary) return null;
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -643,6 +654,8 @@ function ImportSuccessModal({
 }
 
 function ChipRow({ items, selectedId, onSelect }: { items: { id: string; label: string }[]; selectedId: string; onSelect: (id: string) => void }) {
+  const authStyles = useAuthStyles();
+  const examStyles = useExamStyles();
   if (!items.length) {
     return <ThemedText type="caption" style={authStyles.mutedText}>No items yet.</ThemedText>;
   }
@@ -657,7 +670,7 @@ function ChipRow({ items, selectedId, onSelect }: { items: { id: string; label: 
   );
 }
 
-const examStyles = StyleSheet.create({
+function createExamStyles(ExamQuestColors: ThemePalette) { return StyleSheet.create({
   section: {
     gap: Spacing.twoHalf,
     borderTopWidth: 1,
@@ -764,4 +777,6 @@ const examStyles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
   },
-});
+}); }
+const examStylesByScheme = { light: createExamStyles(Colors.light), dark: createExamStyles(Colors.dark) };
+function useExamStyles() { return examStylesByScheme[useThemeScheme()]; }

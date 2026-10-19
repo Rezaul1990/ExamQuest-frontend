@@ -1,7 +1,8 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { ActionSurface } from '@/components/ui/ActionSurface';
 
 import { ThemedText } from '@/components/themed-text';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 
 type DashboardActionCardProps = {
   title: string;
@@ -24,16 +25,15 @@ export function DashboardActionCard({
   disabled,
   onPress,
 }: DashboardActionCardProps) {
+  const authStyles = useAuthStyles();
   return (
-    <Pressable
+    <ActionSurface
       accessibilityRole="button"
-      accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         authStyles.dashboardCard,
         primary && authStyles.dashboardCardPrimary,
-        disabled && authStyles.dashboardCardDisabled,
         pressed && !disabled && authStyles.dashboardCardPressed,
       ]}>
       <View
@@ -57,6 +57,6 @@ export function DashboardActionCard({
         <ThemedText type="caption" style={authStyles.dashboardCardMeta}>{meta}</ThemedText>
       </View>
       <ThemedText type="caption" style={authStyles.dashboardCardCta}>Open</ThemedText>
-    </Pressable>
+    </ActionSurface>
   );
 }

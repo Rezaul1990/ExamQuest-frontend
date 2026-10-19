@@ -20,7 +20,8 @@ export function useProfile() {
     refreshLock.current = true; setRefreshing(true); setError(null);
     try {
       const result = await authService.me();
-      if (useAuth.getState().user?.id === id) setUser(result.user);
+      const current = useAuth.getState().user;
+      if (current?.id === id && (result.user.academicProfileRevision || 0) >= (current.academicProfileRevision || 0)) setUser(result.user);
     } catch (cause) { if (useAuth.getState().user?.id === id) setError(getApiErrorMessage(cause)); }
     finally { refreshLock.current = false; setRefreshing(false); }
   }, [id, setUser]);

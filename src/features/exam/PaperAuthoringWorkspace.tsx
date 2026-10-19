@@ -1,10 +1,11 @@
+import { useThemeScheme } from '@/hooks/use-theme';
 import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { academicGroups } from '@/constants/Academic';
-import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
+import { Colors, type ThemePalette, Radius, Spacing } from '@/constants/theme';
 import type { AcademicGroup, QuestionPaperDto } from '@/models/api/ExamApi';
 import { usePaperAuthoring } from './hooks/usePaperAuthoring';
 import { useAuth } from '@/store';
@@ -13,6 +14,8 @@ import { paperDraftBlocker, type ImportedPaperSource } from './paperAuthoring.he
 import { AdminQuestionReports, CloseAndReleaseResults } from './components/AdminStudentTools';
 
 export function PaperAuthoringWorkspace({ source }: { source?: ImportedPaperSource }) {
+  const authStyles = useAuthStyles();
+  const styles = useStyles();
   const vm = usePaperAuthoring(source);
   const [archiveTarget, setArchiveTarget] = useState<QuestionPaperDto | null>(null);
   const [reviewBank, setReviewBank] = useState(false);
@@ -154,13 +157,16 @@ export function PaperAuthoringWorkspace({ source }: { source?: ImportedPaperSour
   </View>;
 }
 function Choices({ values, selected, onChoose, label = (value) => value }: { values: string[]; selected: string[]; onChoose: (value: string) => void; label?: (value: string) => string }) {
+  const styles = useStyles();
   if (!values.length) return <ThemedText type="caption">Choose the previous field first; matching options appear here.</ThemedText>;
   return <View style={styles.row}>{values.map((value) => <Pressable key={value} accessibilityRole="checkbox" accessibilityState={{ checked: selected.includes(value) }} aria-checked={selected.includes(value)} onPress={() => onChoose(value)} style={[styles.choice, selected.includes(value) && styles.selected]}><ThemedText type="caption">{selected.includes(value) ? '✓ ' : ''}{label(value)}</ThemedText></Pressable>)}</View>;
 }
-const styles = StyleSheet.create({
+function createStyles(ExamQuestColors: ThemePalette) { return StyleSheet.create({
   stack: { gap: Spacing.three }, row: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   choice: { padding: Spacing.three, borderRadius: Radius.md, borderWidth: 1, borderColor: ExamQuestColors.border, marginBottom: Spacing.two },
   selected: { backgroundColor: ExamQuestColors.surfaceSelected, borderColor: ExamQuestColors.brandPrimary },
-  questions: { maxHeight: 320 }, scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.four },
+  questions: { maxHeight: 320 }, scrim: { flex: 1, backgroundColor: ExamQuestColors.scrim, justifyContent: 'center', padding: Spacing.four },
   dialog: { backgroundColor: ExamQuestColors.surface, borderRadius: Radius.md, padding: Spacing.four, maxHeight: '90%', width: '100%', maxWidth: 760, alignSelf: 'center', gap: Spacing.three },
-});
+}); }
+const stylesByScheme = { light: createStyles(Colors.light), dark: createStyles(Colors.dark) };
+function useStyles() { return stylesByScheme[useThemeScheme()]; }

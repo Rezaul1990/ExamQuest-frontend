@@ -1,9 +1,9 @@
-# Serviq Mobile — scoped Codex instructions
+# ExamQuest Frontend — scoped Codex instructions
 
-- Read `ARCHITECTURE_SKELETON.md` for placements before writing frontend changes. This user-authored contract is kept intact; consult current Expo Router docs where actual routing constraints override illustrative placeholder paths.
-- React Native / Expo Router / TypeScript. Thin `app/` route files; real features live in `features/`; services isolate fetch; raw DTOs in models/api and mapped domain models in models/domain when warranted; Zustand only for shared/persisted **client** state.
+- Read `ARCHITECTURE_SKELETON.md` for placements before writing frontend changes. Its ExamQuest mapping documents actual locations; generic examples remain illustrative.
+- React Native / Expo Router / TypeScript. Thin `src/app/` route files; real features live in `src/features/`; services isolate fetch; raw DTOs in models/api and mapped domain models in models/domain when warranted; Zustand only for shared/persisted **client** state.
 - Check current Expo SDK and file locations (`app/` versus `src/app/`) before scaffolding; honor what the actual project uses. Do not create example files solely because skeleton shows them.
-- Authenticated routes live in `src/app/(app)/`; shared navigation belongs to `features/navigation/` and role/permission/title configuration to `navigation.ts`. Layouts own `AppHeaderBar` and tabs; do not add page headers/navigation footers inside feature screens. Preserve active-exam navigation protection and session-keyed import handoff. See `../docs/UI_DESIGN_SYSTEM.md` for route integration.
+- Authenticated routes live in `src/app/(app)/`; `src/features/navigation/navigation.ts` owns role/permission/title configuration and workspace destinations. `src/constants/Routes.ts` holds shared auth/home/profile paths. Layouts mount `NavigationHeader`/`AppHeaderBar` and tabs; do not add page headers/navigation footers inside feature screens. Preserve active-exam navigation protection and session-keyed import handoff. See `../docs/UI_DESIGN_SYSTEM.md` for route integration.
 - For any user-facing feature requiring backend change, coordinate with root cross-stack instructions. Never fake data as a real API integration. Implement loading, empty, success, error, access denied, retry and offline states when relevant.
 - When adding packages use Expo-compatible install practice; report permissions, config plugins, native rebuild and lockfile changes.
 - Update affected docs/specs and show real verification evidence. See `../docs/DELIVERY_REPORT_TEMPLATE.md`.

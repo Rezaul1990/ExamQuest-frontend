@@ -1,6 +1,7 @@
+import { useThemeScheme } from '@/hooks/use-theme';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
+import { Colors, type ThemePalette, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/store';
 
 const roleLabels = {
@@ -10,6 +11,7 @@ const roleLabels = {
 } as const;
 
 export function AuthHeaderUser() {
+  const styles = useStyles();
   const user = useAuth((state) => state.user);
 
   if (!user) return null;
@@ -31,7 +33,7 @@ export function AuthHeaderUser() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(ExamQuestColors: ThemePalette) { return StyleSheet.create({
   container: {
     maxWidth: 168,
     minHeight: 36,
@@ -40,10 +42,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#CFE1DD',
+    borderColor: ExamQuestColors.border,
     paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.one,
-    backgroundColor: '#EEF7F4',
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   avatar: {
     width: 26,
@@ -71,4 +73,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-});
+}); }
+const stylesByScheme = { light: createStyles(Colors.light), dark: createStyles(Colors.dark) };
+function useStyles() { return stylesByScheme[useThemeScheme()]; }

@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 
 type WorkflowStep = {
   label: string;
@@ -17,6 +17,7 @@ type DashboardWorkflowPanelProps = {
 };
 
 export function DashboardWorkflowPanel({ title, body, badge, progress, steps }: DashboardWorkflowPanelProps) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.dashboardFeaturePanel}>
       <View style={authStyles.dashboardFeatureHeader}>

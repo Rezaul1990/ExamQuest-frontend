@@ -1,10 +1,11 @@
+import { useThemeScheme } from '@/hooks/use-theme';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { ExamQuestColors, Radius, Spacing } from '@/constants/theme';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { Colors, type ThemePalette, Radius, Spacing } from '@/constants/theme';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthTextField, ScreenStat } from '@/features/auth/components/AuthFields';
 import type { QuestionPaperDto } from '@/models/api/ExamApi';
 import { useMemberExam } from './hooks/useMemberExam';
@@ -16,6 +17,7 @@ import { ExamExitDialog } from '@/features/navigation/ExamExitDialog';
 type MemberExamSection = 'exams' | 'history';
 
 export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: MemberExamSection; onBack?: () => void }) {
+  const authStyles = useAuthStyles();
   const { books, chapters, papers, attempts, selectedBookId, selectedChapterId, setSelectedBookId, setSelectedChapterId, activeAttempt, activePaper, answers, reviewQuestionIds, toggleReview, result, quota, loading, error, message, submitting, saving, saveMessage, secondsLeft, selectAnswer, startPaper, submitExam, leaveAttempt, resumeAttempt, refresh, flushSave } = useMemberExam();
   const exitGuard = useExamNavigationGuard(!!activeAttempt && !!activePaper, leaveAttempt);
   const [search, setSearch] = useState('');
@@ -32,7 +34,7 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
           secondsLeft={secondsLeft} submitting={submitting} saving={saving} saveMessage={saveMessage} error={error}
           select={selectAnswer} toggleReview={toggleReview} submit={submitExam} save={flushSave}
           reload={() => resumeAttempt(activeAttempt.id)} leave={exitGuard.requestLeave} />
-        <ExamExitDialog mode={exitGuard.dialog} busy={exitGuard.leaving} onDismiss={exitGuard.dismiss} onConfirm={exitGuard.confirm} />
+        <ExamExitDialog mode={exitGuard.dialog} busy={exitGuard.leaving} error={exitGuard.error} onDismiss={exitGuard.dismiss} onConfirm={exitGuard.confirm} />
       </ThemedView>
     );
   }
@@ -100,8 +102,8 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
         </>
       ) : (
         <>
-          <ThemedText type="smallBold">Attempt history</ThemedText>
-          {!attempts.length && <EmptyState title="No attempts yet" body="After submitting an exam, your score and percentage will be listed here." />}
+          <ThemedText type="smallBold">Results & attempt history</ThemedText>
+          {!attempts.length && !loading && !error && <EmptyState title="No attempts yet" body="After submitting an exam, your score and percentage will be listed here." />}
           {attempts.map((attempt) => (
             <View key={attempt.id} style={authStyles.listCard}>
               <View style={authStyles.listCardHeader}>
@@ -123,6 +125,7 @@ export function MemberExamWorkspace({ section = 'exams', onBack }: { section?: M
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
+  const authStyles = useAuthStyles();
   return (
     <View style={authStyles.emptyState}>
       <ThemedText type="smallBold">{title}</ThemedText>
@@ -132,6 +135,8 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 }
 
 function ChipRow({ items, selectedId, onSelect }: { items: { id: string; label: string }[]; selectedId: string; onSelect: (id: string) => void }) {
+  const authStyles = useAuthStyles();
+  const examStyles = useExamStyles();
   if (!items.length) {
     return <ThemedText type="caption" style={authStyles.mutedText}>No items yet.</ThemedText>;
   }
@@ -146,7 +151,7 @@ function ChipRow({ items, selectedId, onSelect }: { items: { id: string; label: 
   );
 }
 
-const examStyles = StyleSheet.create({
+function createExamStyles(ExamQuestColors: ThemePalette) { return StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -172,7 +177,9 @@ const examStyles = StyleSheet.create({
     fontWeight: '800',
   },
 
-});
+}); }
+const examStylesByScheme = { light: createExamStyles(Colors.light), dark: createExamStyles(Colors.dark) };
+function useExamStyles() { return examStylesByScheme[useThemeScheme()]; }
 
 function formatWindow(paper: QuestionPaperDto) {
   const from = paper.availableFrom ? new Date(paper.availableFrom).toLocaleString() : 'Now';

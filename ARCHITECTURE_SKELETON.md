@@ -4,6 +4,18 @@ Purpose: ei file ta jekono new/basic React Native app e dile AI agent bujhte par
 
 Use this as the app's architectural contract.
 
+## ExamQuest repository mapping — verified 2026-10-18
+
+This section maps the reusable examples below to the existing app. Paths here are relative to `frontend/`; generic example folders below are not scaffolding instructions.
+
+- Source root is `src/`: `src/app/`, `src/features/`, `src/components/`, `src/services/`, `src/models/`, `src/store/` and `src/constants/`. Assets remain in `assets/`.
+- EQ-009 adds `(app)/progress.tsx` as the Member results/history tab; `(app)/results.tsx` is a protected hidden redirect for legacy links. Home retains learning/schedule tools. Other role destinations remain as listed below.
+- `src/app/_layout.tsx` restores auth and protects `(app)`; public auth routes are adjacent files. Authenticated destinations live in `src/app/(app)/`: `index.tsx`, `exams.tsx`, `results.tsx`, `papers.tsx`, `staff.tsx`, `profile.tsx`, and nested `management/`. There is no `app/screens/` or `(tabs)` route group to extend.
+- `(app)/_layout.tsx` re-exports `src/components/app-tabs`; platform variants mount `src/features/navigation/AuthenticatedTabs.tsx`. `NavigationHeader` wraps `AppHeaderBar`; feature screens do not own duplicate shell headers/tabs.
+- `src/features/navigation/navigation.ts` owns tab permissions/titles and `workspaceHref`; `src/constants/Routes.ts` contains shared home/auth/profile URLs. Management sections are `books`, `chapters`, `import`, `question`; dynamic routes validate them. Route groups do not change public URLs such as `/profile`.
+- Current data/session entry points: `src/services/apiClient.ts`, `src/services/examService.ts`, `src/services/learningService.ts`, `src/store/index.ts`, `src/store/stores/authStore.tsx`. Tests are beside features under `__tests__/`.
+- Apply the responsibility boundaries below within these actual locations. Do not move working routes, generate placeholder `app/screens/` files or reset this application to match the generic examples.
+
 ## Core Idea
 
 App code layer wise thakbe:
@@ -851,19 +863,20 @@ npx tsc --noEmit
 
 ## AI Agent Read Order
 
-Before changing code, an AI agent should read:
+For this ExamQuest app, read these existing files before changing code (paths relative to `frontend/`):
 
 ```text
 ARCHITECTURE_SKELETON.md
 package.json
 README.md
-app/_layout.tsx
-constants/Routes.ts
-store/index.ts
-services/apiClient.ts
+src/app/_layout.tsx
+src/constants/Routes.ts
+src/features/navigation/navigation.ts
+src/store/index.ts
+src/services/apiClient.ts
 ```
 
-Then read the nearest similar feature in `features/`.
+Then read the nearest similar feature in `src/features/`. Earlier generic placement examples describe responsibilities; use the ExamQuest mapping for actual routing locations.
 
 If a listed file does not exist yet, create it only when the current task needs it.
 

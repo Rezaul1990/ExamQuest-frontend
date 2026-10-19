@@ -1,16 +1,17 @@
+import { useTheme } from '@/hooks/use-theme';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields';
 import type { ExamChapterDto, ExamQuestionDto, OptionKey } from '@/models/api/ExamApi';
 import { examService } from '@/services/examService';
-import { ExamQuestColors } from '@/constants/theme';
 import { useQuestionBank } from './hooks/useQuestionBank';
 
 export function QuestionBankWorkspace({ bookId, chapters, version, admin, onDelete, onBusyChange }: {
   bookId: string; chapters: ExamChapterDto[]; version: ExamQuestionDto[]; admin: boolean; onDelete?: (q: ExamQuestionDto) => void; onBusyChange?: (busy: boolean) => void;
 }) {
+  const authStyles = useAuthStyles();
   const bank = useQuestionBank(bookId, version, admin);
   const [approvalList, setApprovalList] = useState<ExamQuestionDto[] | null>(null);
   const pending = bank.questions.filter((question) => question.status === 'active' && question.reviewStatus !== 'approved');
@@ -86,6 +87,7 @@ export function QuestionBankWorkspace({ bookId, chapters, version, admin, onDele
 }
 
 function Choices({ label, values, names, value, onChange }: { label: string; values: string[]; names?: string[]; value: string; onChange: (v: string) => void }) {
+  const ExamQuestColors = useTheme();
   return <View style={{ gap: 6 }}><ThemedText type="caption">{label}</ThemedText><View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
     {values.map((v, i) => <Pressable key={v} accessibilityRole="radio" accessibilityLabel={`${label}: ${names?.[i] || v || 'All'}`} aria-checked={value === v} accessibilityState={{ checked: value === v }} onPress={() => onChange(v)} style={{ padding: 9, borderWidth: 1, borderRadius: 8, borderColor: value === v ? ExamQuestColors.brandPrimary : ExamQuestColors.border }}><ThemedText type="caption">{names?.[i] || v || 'All'}</ThemedText></Pressable>)}
   </View></View>;

@@ -1,10 +1,10 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { Fonts, Typography, type ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'sectionTitle' | 'caption' | 'link' | 'linkPrimary' | 'code';
+  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'sectionTitle' | 'caption' | 'link' | 'linkPrimary' | 'code' | 'question' | 'option' | 'explanation';
   themeColor?: ThemeColor;
 };
 
@@ -13,8 +13,14 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
   return (
     <Text
+      allowFontScaling
+      maxFontSizeMultiplier={0}
+      adjustsFontSizeToFit={false}
+      textBreakStrategy="highQuality"
+      lineBreakStrategyIOS="standard"
       style={[
-        { color: theme[themeColor ?? 'text'] },
+        styles.base,
+        { color: theme[themeColor ?? (type === 'linkPrimary' ? 'brandPrimary' : 'textPrimary')] },
         type === 'default' && styles.default,
         type === 'title' && styles.title,
         type === 'small' && styles.small,
@@ -25,6 +31,9 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
+        type === 'question' && styles.question,
+        type === 'option' && styles.option,
+        type === 'explanation' && styles.explanation,
         style,
       ]}
       {...rest}
@@ -33,50 +42,14 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 }
 
 const styles = StyleSheet.create({
-  small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 400,
+  base: {
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+    ...Platform.select({ web: { fontFamily: Fonts.sans }, android: { includeFontPadding: true } }),
   },
-  smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
-  },
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 400,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: 700,
-    lineHeight: 42,
-  },
-  subtitle: {
-    fontSize: 26,
-    lineHeight: 34,
-    fontWeight: 700,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    lineHeight: 26,
-    fontWeight: 700,
-  },
-  caption: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: 500,
-  },
-  link: {
-    lineHeight: 30,
-    fontSize: 14,
-  },
-  linkPrimary: {
-    lineHeight: 30,
-    fontSize: 14,
-    color: '#3c87f7',
-  },
+  ...Typography,
+  linkPrimary: Typography.link,
   code: {
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,

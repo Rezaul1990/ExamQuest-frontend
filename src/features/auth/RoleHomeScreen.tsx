@@ -7,7 +7,7 @@ import { DashboardWorkflowPanel } from '@/components/DashboardWorkflowPanel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Routes } from '@/constants/Routes';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import { useAuth } from '@/store';
 import { StudentLearningPanel } from '@/features/exam/StudentLearningPanel';
 
@@ -15,6 +15,7 @@ type StaffSection = 'dashboard' | 'books' | 'chapters' | 'import' | 'question' |
 type MemberSection = 'dashboard' | 'exams' | 'history';
 
 export function RoleHomeScreen() {
+  const authStyles = useAuthStyles();
   const { user } = useAuth();
   const isStaff = user?.role === 'STAFF';
 
@@ -43,7 +44,7 @@ export function RoleHomeScreen() {
               <ThemedText type="linkPrimary">Open profile</ThemedText>
             </Link>
           </ThemedView>
-          {isStaff ? <StaffQuickLinks userPermissions={user?.permissions || []} onOpen={(next) => router.navigate(workspaceHref(next))} /> : <MemberQuickLinks onOpen={(next) => router.navigate(next === 'history' ? '/results' : '/exams')} />}
+          {isStaff ? <StaffQuickLinks userPermissions={user?.permissions || []} onOpen={(next) => router.navigate(workspaceHref(next))} /> : <MemberQuickLinks onOpen={(next) => router.navigate(next === 'history' ? '/progress' : '/exams')} />}
           {user?.role === 'MEMBER' && <StudentLearningPanel key={user.id} />}
         </ThemedView>
       </ScrollView>
@@ -52,6 +53,7 @@ export function RoleHomeScreen() {
 }
 
 function StaffQuickLinks({ userPermissions, onOpen }: { userPermissions: string[]; onOpen: (section: StaffSection) => void }) {
+  const authStyles = useAuthStyles();
   return (
     <ThemedView style={authStyles.panel}>
       <ThemedView style={authStyles.panelHeader}>
@@ -82,6 +84,7 @@ function StaffQuickLinks({ userPermissions, onOpen }: { userPermissions: string[
 }
 
 function MemberQuickLinks({ onOpen }: { onOpen: (section: MemberSection) => void }) {
+  const authStyles = useAuthStyles();
   return (
     <ThemedView style={authStyles.panel}>
       <ThemedView style={authStyles.panelHeader}>
@@ -101,7 +104,7 @@ function MemberQuickLinks({ onOpen }: { onOpen: (section: MemberSection) => void
       />
       <View style={authStyles.dashboardGrid}>
         <DashboardActionCard title="Available exams" meta="Book, chapter and paper list" eyebrow="Start" accent="Live" tone="green" primary onPress={() => onOpen('exams')} />
-        <DashboardActionCard title="Result history" meta="Submitted attempts and scores" eyebrow="Review" accent="Score" tone="blue" onPress={() => onOpen('history')} />
+        <DashboardActionCard title="Progress & results" meta="Attempt history and scores" eyebrow="Review" accent="Score" tone="blue" onPress={() => onOpen('history')} />
       </View>
     </ThemedView>
   );

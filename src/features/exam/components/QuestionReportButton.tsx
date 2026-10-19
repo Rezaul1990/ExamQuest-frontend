@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { AuthButton, AuthTextField } from '@/features/auth/components/AuthFields';
-import { authStyles } from '@/features/auth/Auth.styles';
+import { useAuthStyles } from '@/features/auth/Auth.styles';
 import type { QuestionReportCategory } from '@/models/api/LearningApi';
 import { getApiErrorMessage } from '@/services/apiClient';
 import { learningService } from '@/services/learningService';
-import { learningStyles as s } from './learning.styles';
+import { useLearningStyles } from './learning.styles';
 
 export function QuestionReportButton({ attemptId, questionId }: { attemptId: string; questionId: string }) {
+  const authStyles = useAuthStyles();
+  const s = useLearningStyles();
   const [open,setOpen]=useState(false),[category,setCategory]=useState<QuestionReportCategory>('unclear'),[detail,setDetail]=useState('');
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   async function send() {

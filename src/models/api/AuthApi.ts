@@ -36,3 +36,7 @@ export type RegisterMemberResponse = {
   user: AuthUser;
   message: string;
 };
+
+export type AcademicProfileRequest = Pick<RegisterMemberRequest, 'educationLevel' | 'className' | 'group' | 'academicYear'> & {
+  confirmed: true; expectedRevision: number;
+};

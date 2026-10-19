@@ -1,8 +1,9 @@
-import { StyleSheet } from 'react-native';
+import { useThemeScheme } from '@/hooks/use-theme';
+import { Platform, StyleSheet } from 'react-native';
 
-import { ExamQuestColors, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { ControlSize, Elevation, Colors, type ThemePalette, Fonts, MaxContentWidth, Radius, Spacing, Typography } from '@/constants/theme';
 
-export const authStyles = StyleSheet.create({
+export function createStyles(ExamQuestColors: ThemePalette) { return StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -55,13 +56,9 @@ export const authStyles = StyleSheet.create({
     padding: Spacing.threeHalf,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: '#CFE1DD',
-    backgroundColor: '#EEF7F4',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 3,
+    borderColor: ExamQuestColors.border,
+    backgroundColor: ExamQuestColors.surfaceSoft,
+    ...Elevation.floating,
   },
   heroAccent: {
     width: 72,
@@ -100,14 +97,10 @@ export const authStyles = StyleSheet.create({
     gap: Spacing.twoHalf,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#D5E6E1',
+    borderColor: ExamQuestColors.border,
     padding: Spacing.three,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 2,
+    backgroundColor: ExamQuestColors.surface,
+    ...Elevation.raised,
   },
   previewHeader: {
     flexDirection: 'row',
@@ -122,17 +115,17 @@ export const authStyles = StyleSheet.create({
     backgroundColor: ExamQuestColors.textPrimary,
   },
   previewChipText: {
-    color: '#FFFFFF',
+    color: ExamQuestColors.onBrandPrimary,
     fontWeight: '800',
   },
   previewLine: {
     height: 8,
     borderRadius: Radius.sm,
-    backgroundColor: '#DCEAE6',
+    backgroundColor: ExamQuestColors.border,
   },
   previewLineStrong: {
     height: 10,
-    backgroundColor: '#BFD8D1',
+    backgroundColor: ExamQuestColors.borderStrong,
   },
   previewLineShort: {
     width: '62%',
@@ -147,9 +140,9 @@ export const authStyles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#D5E6E1',
+    borderColor: ExamQuestColors.border,
     paddingHorizontal: Spacing.two,
-    backgroundColor: '#F8FBFA',
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   previewOptionActive: {
     borderColor: ExamQuestColors.brandPrimary,
@@ -166,7 +159,7 @@ export const authStyles = StyleSheet.create({
     height: 8,
     overflow: 'hidden',
     borderRadius: Radius.sm,
-    backgroundColor: '#DCEAE6',
+    backgroundColor: ExamQuestColors.border,
   },
   previewProgressFill: {
     width: '68%',
@@ -186,8 +179,8 @@ export const authStyles = StyleSheet.create({
     minHeight: 34,
     borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#D5E6E1',
-    backgroundColor: '#F8FBFA',
+    borderColor: ExamQuestColors.border,
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   previewMatrixCellActive: {
     borderColor: ExamQuestColors.brandPrimary,
@@ -202,7 +195,7 @@ export const authStyles = StyleSheet.create({
     gap: Spacing.half,
     borderRadius: Radius.sm,
     padding: Spacing.two,
-    backgroundColor: '#F8FBFA',
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   previewMiniStatValue: {
     color: ExamQuestColors.textPrimary,
@@ -214,18 +207,19 @@ export const authStyles = StyleSheet.create({
     gap: Spacing.two,
     borderRadius: Radius.sm,
     padding: Spacing.two,
-    backgroundColor: '#F8FBFA',
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   previewAvatar: {
-    width: 30,
-    height: 30,
+    minWidth: 30,
+    minHeight: 30,
+    padding: Spacing.half,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.sm,
     backgroundColor: ExamQuestColors.textPrimary,
   },
   previewAvatarText: {
-    color: '#FFFFFF',
+    color: ExamQuestColors.onBrandPrimary,
     fontWeight: '800',
   },
   previewStaffCopy: {
@@ -239,7 +233,7 @@ export const authStyles = StyleSheet.create({
   previewPermissionBar: {
     height: 6,
     borderRadius: Radius.sm,
-    backgroundColor: '#DCEAE6',
+    backgroundColor: ExamQuestColors.border,
   },
   previewPermissionBarActive: {
     backgroundColor: ExamQuestColors.brandPrimary,
@@ -250,18 +244,19 @@ export const authStyles = StyleSheet.create({
     gap: Spacing.two,
     borderRadius: Radius.sm,
     padding: Spacing.two,
-    backgroundColor: '#F8FBFA',
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   previewCheck: {
-    width: 26,
-    height: 26,
+    minWidth: 26,
+    minHeight: 26,
+    padding: Spacing.half,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.sm,
     backgroundColor: ExamQuestColors.brandPrimary,
   },
   previewCheckText: {
-    color: '#FFFFFF',
+    color: ExamQuestColors.onBrandPrimary,
     fontWeight: '800',
   },
   previewDots: {
@@ -273,7 +268,7 @@ export const authStyles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#C9DAD5',
+    backgroundColor: ExamQuestColors.border,
   },
   previewDotActive: {
     width: 18,
@@ -285,9 +280,9 @@ export const authStyles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#B7D8D0',
+    borderColor: ExamQuestColors.borderStrong,
     paddingHorizontal: Spacing.twoHalf,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ExamQuestColors.surface,
   },
   statusBadgeText: {
     color: ExamQuestColors.brandPrimary,
@@ -311,11 +306,7 @@ export const authStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: ExamQuestColors.border,
     backgroundColor: ExamQuestColors.surface,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
+    ...Elevation.card,
   },
   panelHeader: {
     gap: Spacing.one,
@@ -330,15 +321,16 @@ export const authStyles = StyleSheet.create({
     gap: Spacing.twoHalf,
   },
   stepNumber: {
-    width: 34,
-    height: 34,
+    minWidth: 34,
+    minHeight: 34,
+    padding: Spacing.half,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.sm,
     backgroundColor: ExamQuestColors.textPrimary,
   },
   stepNumberText: {
-    color: '#FFFFFF',
+    color: ExamQuestColors.onBrandPrimary,
     fontWeight: '800',
   },
   stepCopy: {
@@ -360,10 +352,12 @@ export const authStyles = StyleSheet.create({
     color: ExamQuestColors.textMuted,
   },
   input: {
+    ...Typography.default,
+    ...Platform.select({ web: { fontFamily: Fonts.sans }, android: { includeFontPadding: true } }),
     flex: 1,
-    minHeight: 48,
+    minWidth: 0,
+    minHeight: ControlSize.input,
     paddingHorizontal: Spacing.three,
-    fontSize: 16,
     color: ExamQuestColors.textPrimary,
   },
   inputShell: {
@@ -377,10 +371,11 @@ export const authStyles = StyleSheet.create({
   },
   inputError: {
     borderColor: ExamQuestColors.error,
-    backgroundColor: '#FFF8F7',
+    backgroundColor: ExamQuestColors.errorSoft,
   },
   inputAction: {
-    minHeight: 48,
+    minHeight: ControlSize.input,
+    minWidth: ControlSize.touch,
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
   },
@@ -388,11 +383,12 @@ export const authStyles = StyleSheet.create({
     color: ExamQuestColors.brandPrimary,
   },
   button: {
-    minHeight: 54,
+    minHeight: ControlSize.button,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.twoHalf,
     backgroundColor: ExamQuestColors.brandPrimary,
   },
   secondaryButton: {
@@ -404,9 +400,10 @@ export const authStyles = StyleSheet.create({
     backgroundColor: ExamQuestColors.error,
   },
   buttonText: {
+    ...Typography.button,
+    flexShrink: 1,
+    textAlign: 'center',
     color: ExamQuestColors.onBrandPrimary,
-    fontSize: 16,
-    fontWeight: '700',
   },
   secondaryButtonText: {
     color: ExamQuestColors.textPrimary,
@@ -414,7 +411,7 @@ export const authStyles = StyleSheet.create({
   notice: {
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#B7DFC8',
+    borderColor: ExamQuestColors.success,
     padding: Spacing.three,
     color: ExamQuestColors.success,
     backgroundColor: ExamQuestColors.successSoft,
@@ -422,7 +419,7 @@ export const authStyles = StyleSheet.create({
   error: {
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#F3B6B0',
+    borderColor: ExamQuestColors.error,
     padding: Spacing.three,
     color: ExamQuestColors.error,
     backgroundColor: ExamQuestColors.errorSoft,
@@ -430,7 +427,7 @@ export const authStyles = StyleSheet.create({
   info: {
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#C8D7F4',
+    borderColor: ExamQuestColors.info,
     padding: Spacing.three,
     color: ExamQuestColors.info,
     backgroundColor: ExamQuestColors.infoSoft,
@@ -451,15 +448,15 @@ export const authStyles = StyleSheet.create({
     backgroundColor: ExamQuestColors.surfaceSoft,
   },
   statItemStrong: {
-    borderColor: '#CFE1DD',
-    backgroundColor: '#FFFFFF',
+    borderColor: ExamQuestColors.border,
+    backgroundColor: ExamQuestColors.surface,
   },
   heroMetric: {
     flexGrow: 1,
     minWidth: 132,
     padding: Spacing.twoHalf,
     borderRadius: Radius.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ExamQuestColors.surface,
   },
   listRow: {
     gap: Spacing.one,
@@ -502,8 +499,9 @@ export const authStyles = StyleSheet.create({
     color: ExamQuestColors.brandPrimary,
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    minWidth: 24,
+    minHeight: 24,
+    padding: Spacing.half,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.sm,
@@ -549,15 +547,12 @@ export const authStyles = StyleSheet.create({
     overflow: 'hidden',
   },
   dashboardCardPrimary: {
-    borderColor: '#B7D8D0',
+    borderColor: ExamQuestColors.borderStrong,
     backgroundColor: ExamQuestColors.surfaceSelected,
   },
   dashboardCardPressed: {
     borderColor: ExamQuestColors.brandPrimary,
-    backgroundColor: '#F8FBFA',
-  },
-  dashboardCardDisabled: {
-    opacity: 0.56,
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   dashboardCardRail: {
     position: 'absolute',
@@ -597,8 +592,8 @@ export const authStyles = StyleSheet.create({
     backgroundColor: ExamQuestColors.surfaceSoft,
   },
   dashboardCardAccentPrimary: {
-    borderColor: '#B7D8D0',
-    backgroundColor: '#FFFFFF',
+    borderColor: ExamQuestColors.borderStrong,
+    backgroundColor: ExamQuestColors.surface,
   },
   dashboardCardAccentText: {
     color: ExamQuestColors.brandPrimary,
@@ -637,9 +632,9 @@ export const authStyles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#B7D8D0',
+    borderColor: ExamQuestColors.borderStrong,
     paddingHorizontal: Spacing.twoHalf,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: ExamQuestColors.surface,
   },
   workspacePillText: {
     color: ExamQuestColors.brandPrimary,
@@ -678,9 +673,9 @@ export const authStyles = StyleSheet.create({
     gap: Spacing.three,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#CFE1DD',
+    borderColor: ExamQuestColors.border,
     padding: Spacing.three,
-    backgroundColor: '#F8FBFA',
+    backgroundColor: ExamQuestColors.surfaceSoft,
   },
   dashboardFeatureHeader: {
     flexDirection: 'row',
@@ -702,7 +697,7 @@ export const authStyles = StyleSheet.create({
     backgroundColor: ExamQuestColors.textPrimary,
   },
   dashboardFeatureBadgeText: {
-    color: '#FFFFFF',
+    color: ExamQuestColors.onBrandPrimary,
     fontWeight: '800',
   },
   dashboardStepRail: {
@@ -715,8 +710,9 @@ export const authStyles = StyleSheet.create({
     minHeight: 44,
   },
   dashboardStepMarker: {
-    width: 28,
-    height: 28,
+    minWidth: 28,
+    minHeight: 28,
+    padding: Spacing.half,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.sm,
@@ -729,7 +725,7 @@ export const authStyles = StyleSheet.create({
     backgroundColor: ExamQuestColors.warning,
   },
   dashboardStepMarkerText: {
-    color: '#FFFFFF',
+    color: ExamQuestColors.onBrandPrimary,
     fontWeight: '800',
   },
   dashboardStepCopy: {
@@ -740,11 +736,14 @@ export const authStyles = StyleSheet.create({
     height: 8,
     overflow: 'hidden',
     borderRadius: Radius.sm,
-    backgroundColor: '#DCEAE6',
+    backgroundColor: ExamQuestColors.border,
   },
   dashboardProgressFill: {
     height: '100%',
     borderRadius: Radius.sm,
     backgroundColor: ExamQuestColors.brandPrimary,
   },
-});
+}); }
+const byScheme = { light: createStyles(Colors.light), dark: createStyles(Colors.dark) };
+export const authStyles = byScheme.light;
+export function useAuthStyles() { return byScheme[useThemeScheme()]; }

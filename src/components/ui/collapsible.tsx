@@ -1,6 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { PropsWithChildren, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { ActionSurface } from '@/components/ui/ActionSurface';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
@@ -14,8 +15,10 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
 
   return (
     <ThemedView>
-      <Pressable
-        style={({ pressed }) => [styles.heading, pressed && styles.pressedHeading]}
+      <ActionSurface
+        accessibilityLabel={title}
+        accessibilityState={{ expanded: isOpen }}
+        style={styles.heading}
         onPress={() => setIsOpen((value) => !value)}>
         <ThemedView type="backgroundElement" style={styles.button}>
           <SymbolView
@@ -28,7 +31,7 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
         </ThemedView>
 
         <ThemedText type="small">{title}</ThemedText>
-      </Pressable>
+      </ActionSurface>
       {isOpen && (
         <Animated.View entering={FadeIn.duration(200)}>
           <ThemedView type="backgroundElement" style={styles.content}>
@@ -45,9 +48,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-  },
-  pressedHeading: {
-    opacity: 0.7,
   },
   button: {
     width: Spacing.four,
